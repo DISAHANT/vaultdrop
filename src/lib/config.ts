@@ -46,7 +46,7 @@ export const CONFIG = {
 
   // App
   APP_NAME: 'VaultDrop',
-  APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+  APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'https://vaultdrop-eta.vercel.app',
 } as const;
 
 export function formatBytes(bytes: number | bigint): string {

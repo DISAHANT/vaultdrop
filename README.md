@@ -46,8 +46,8 @@ npm install
 Create a `.env` file in the root directory:
 ```env
 DATABASE_URL="mysql://<user>:<password>@<host>:4000/test?sslaccept=strict"
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
-NEXTAUTH_URL="http://localhost:3000"
+NEXT_PUBLIC_APP_URL="https://vaultdrop-eta.vercel.app"
+NEXTAUTH_URL="https://vaultdrop-eta.vercel.app"
 NEXTAUTH_SECRET="your-super-secret-key"
 ```
 
@@ -66,7 +66,8 @@ npm run build
 npm run start
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Live Demo: [https://vaultdrop-eta.vercel.app](https://vaultdrop-eta.vercel.app)
+Local: [http://localhost:3000](http://localhost:3000)
 
 ---
 

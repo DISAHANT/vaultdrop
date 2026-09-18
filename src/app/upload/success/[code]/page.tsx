@@ -27,6 +27,7 @@ export default function SuccessPage() {
 
   useEffect(() => {
     fetch(`/api/shares/${code}`).then(r => r.json()).then(data => {
+      const baseUrl = typeof window !== 'undefined' && window.location.origin ? window.location.origin : CONFIG.APP_URL;
       setShare({
         shareCode: data.shareCode,
         title: data.title,
@@ -35,7 +36,7 @@ export default function SuccessPage() {
         expiresAt: data.expiresAt,
         maxDownloads: data.maxDownloads,
         hasPassword: data.hasPassword,
-        url: `${CONFIG.APP_URL}/receive/${data.shareCode}`,
+        url: `${baseUrl}/receive/${data.shareCode}`,
       });
     });
   }, [code]);
