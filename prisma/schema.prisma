@@ -1,0 +1,90 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum ShareStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+  DELETED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String?
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  avatarUrl    String?  @map("avatar_url")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  shares Share[]
+
+  @@map("users")
+}
+
+model Share {
+  id            String      @id @default(cuid())
+  ownerId       String?     @map("owner_id")
+  shareCode     String      @unique @map("share_code") @db.VarChar(20)
+  title         String?     @db.VarChar(255)
+  description   String?     @db.Text
+  passwordHash  String?     @map("password_hash")
+  expiresAt     DateTime?   @map("expires_at")
+  maxDownloads  Int?        @map("max_downloads")
+  downloadCount Int         @default(0) @map("download_count")
+  totalFiles    Int         @default(0) @map("total_files")
+  totalSize     BigInt      @default(0) @map("total_size")
+  status        ShareStatus @default(ACTIVE)
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  owner          User?           @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  files          File[]
+  downloadEvents DownloadEvent[]
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([expiresAt])
+  @@index([createdAt])
+  @@map("shares")
+}
+
+model File {
+  id               String   @id @default(cuid())
+  shareId          String   @map("share_id")
+  originalFilename String   @map("original_filename") @db.VarChar(500)
+  mimeType         String   @map("mime_type") @db.VarChar(255)
+  fileSize         BigInt   @map("file_size")
+  fileData         Bytes    @map("file_data") @db.LongBlob
+  checksum         String?  @db.VarChar(64)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  share          Share           @relation(fields: [shareId], references: [id], onDelete: Cascade)
+  downloadEvents DownloadEvent[]
+
+  @@index([shareId])
+  @@map("files")
+}
+
+model DownloadEvent {
+  id           String   @id @default(cuid())
+  shareId      String   @map("share_id")
+  fileId       String?  @map("file_id")
+  ipHash       String?  @map("ip_hash") @db.VarChar(64)
+  userAgent    String?  @map("user_agent") @db.VarChar(500)
+  downloadedAt DateTime @default(now()) @map("downloaded_at")
+
+  share Share  @relation(fields: [shareId], references: [id], onDelete: Cascade)
+  file  File?  @relation(fields: [fileId], references: [id], onDelete: SetNull)
+
+  @@index([shareId])
+  @@index([fileId])
+  @@index([downloadedAt])
+  @@map("download_events")
+}
