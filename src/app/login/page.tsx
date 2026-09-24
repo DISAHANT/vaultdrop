@@ -36,18 +36,18 @@ export default function LoginPage() {
   return (
     <div className="max-w-sm mx-auto px-4 py-16 md:py-24 animate-fade-up">
       <div className="text-center mb-8">
-        <div className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center shadow-lg" style={{ background: 'linear-gradient(135deg, var(--accent), #17895a)' }}>
-          <Shield className="w-7 h-7 text-white" />
+        <div className="w-12 h-12 rounded-2xl mx-auto mb-4 flex items-center justify-center bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 border border-neutral-700/60 dark:border-white/20 shadow-sm">
+          <Shield className="w-6 h-6" />
         </div>
         <h1 className="text-2xl font-bold mb-1">Welcome to VaultDrop</h1>
-        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Sign in to manage devices, workspaces, and files</p>
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">Sign in to manage devices, workspaces, and files</p>
       </div>
 
       <div className="glass-card p-6 space-y-5">
         <button
           type="button"
           onClick={handleGoogleSignIn}
-          className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl border border-[var(--border-primary)] bg-[var(--bg-card)] hover:bg-[var(--bg-secondary)] hover:border-[var(--accent)] font-semibold text-sm transition-all duration-200 shadow-sm"
+          className="btn-secondary w-full py-2.5 font-medium text-sm"
         >
           <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />

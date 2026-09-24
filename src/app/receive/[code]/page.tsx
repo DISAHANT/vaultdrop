@@ -459,17 +459,13 @@ export default function ShareViewPage() {
                   )}
                 </div>
 
-                <div className="relative w-full h-2.5 rounded-full overflow-hidden bg-[var(--bg-secondary)]">
+                <div className="relative w-full h-2 rounded-full overflow-hidden bg-neutral-200 dark:bg-white/[0.08]">
                   <div
-                    className="h-full rounded-full transition-all duration-150 relative overflow-hidden"
+                    className="h-full rounded-full transition-all duration-150 bg-neutral-900 dark:bg-white"
                     style={{
                       width: `${downloadProgress.percent}%`,
-                      background: 'linear-gradient(90deg, #10b981, var(--accent), #06b6d4)',
-                      boxShadow: '0 0 12px rgba(36, 169, 112, 0.5)',
                     }}
-                  >
-                    <div className="absolute inset-0 bg-white/25 animate-pulse" />
-                  </div>
+                  />
                 </div>
               </div>
             ) : (
@@ -541,17 +537,13 @@ export default function ShareViewPage() {
                       )}
                     </div>
 
-                    <div className="relative w-full h-2 rounded-full overflow-hidden bg-[var(--bg-secondary)]">
+                    <div className="relative w-full h-1.5 rounded-full overflow-hidden bg-neutral-200 dark:bg-white/[0.08]">
                       <div
-                        className="h-full rounded-full transition-all duration-150 relative overflow-hidden"
+                        className="h-full rounded-full transition-all duration-150 bg-neutral-900 dark:bg-white"
                         style={{
                           width: `${downloadProgress.percent}%`,
-                          background: 'linear-gradient(90deg, #10b981, var(--accent), #06b6d4)',
-                          boxShadow: '0 0 10px rgba(36, 169, 112, 0.5)',
                         }}
-                      >
-                        <div className="absolute inset-0 bg-white/20 animate-pulse" />
-                      </div>
+                      />
                     </div>
                   </div>
                 );

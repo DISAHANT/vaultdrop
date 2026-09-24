@@ -453,7 +453,7 @@ export default function CodeDropPage() {
               Click to select any directory from your machine. Directory hierarchy will be preserved automatically.
             </p>
 
-            <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-cyan-600 text-white font-medium text-sm hover:bg-cyan-500 transition-colors shadow-lg shadow-cyan-600/25">
+            <div className="btn-primary px-6 py-2.5 text-sm font-semibold">
               <FolderCode className="w-4 h-4" />
               <span>Select Project Directory</span>
             </div>
@@ -742,9 +742,9 @@ export default function CodeDropPage() {
             </div>
             <button
               onClick={startUpload}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-neutral-950 font-bold text-sm shadow-xl shadow-cyan-500/30 transition-all hover:scale-105 active:scale-95"
+              className="btn-primary w-full sm:w-auto px-7 py-3 text-sm font-semibold"
             >
-              <UploadCloud className="w-5 h-5" />
+              <UploadCloud className="w-4 h-4" />
               <span>Upload Workspace Now</span>
             </button>
           </div>
@@ -754,30 +754,28 @@ export default function CodeDropPage() {
       {/* PHASE 3: LIVE UPLOADING SCREEN */}
       {phase === 'uploading' && (
         <div className="max-w-2xl mx-auto bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 rounded-3xl p-8 sm:p-12 shadow-2xl text-center">
-          <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-cyan-500/10 text-cyan-500 border border-cyan-500/20 flex items-center justify-center animate-pulse">
-            <UploadCloud className="w-8 h-8" />
+          <div className="w-14 h-14 mx-auto mb-5 rounded-2xl bg-neutral-100 dark:bg-white/[0.05] text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-white/10 flex items-center justify-center">
+            <UploadCloud className="w-7 h-7" />
           </div>
 
-          <h2 className="text-xl sm:text-2xl font-extrabold text-neutral-900 dark:text-neutral-100 mb-1">
+          <h2 className="text-xl sm:text-2xl font-bold text-neutral-900 dark:text-neutral-100 mb-1">
             Uploading Workspace
           </h2>
 
           {/* Prominent Large Percentage Display */}
           <div className="my-5 flex items-baseline justify-center gap-1.5">
-            <span className="text-6xl sm:text-7xl font-black bg-gradient-to-r from-cyan-400 via-teal-300 to-indigo-400 bg-clip-text text-transparent font-mono tracking-tight drop-shadow-sm">
+            <span className="text-6xl sm:text-7xl font-black text-neutral-900 dark:text-white font-mono tracking-tight">
               {uploadStats.percent}
             </span>
-            <span className="text-3xl font-bold text-cyan-500 font-mono">%</span>
+            <span className="text-2xl font-bold text-neutral-400 font-mono">%</span>
           </div>
 
-          {/* Progress Bar with Glowing Effect */}
-          <div className="w-full bg-neutral-200 dark:bg-neutral-800/90 h-4 rounded-full overflow-hidden mb-5 p-0.5 border border-neutral-300 dark:border-neutral-700 shadow-inner">
+          {/* Progress Bar */}
+          <div className="w-full bg-neutral-200 dark:bg-neutral-800/90 h-3 rounded-full overflow-hidden mb-5 border border-neutral-300 dark:border-neutral-700">
             <div
-              className="bg-gradient-to-r from-cyan-500 via-teal-400 to-indigo-500 h-full rounded-full transition-all duration-300 shadow-md relative overflow-hidden"
+              className="bg-neutral-900 dark:bg-white h-full rounded-full transition-all duration-200"
               style={{ width: `${Math.max(2, uploadStats.percent)}%` }}
-            >
-              <div className="absolute inset-0 bg-white/20 animate-pulse" />
-            </div>
+            />
           </div>
 
           {/* Real-time stats grid with Reverse Countdown Timer */}
@@ -866,7 +864,7 @@ export default function CodeDropPage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
               href={`/workspaces/${completedWorkspaceId}`}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-sm shadow-lg shadow-cyan-600/25 transition-all"
+              className="btn-primary w-full sm:w-auto px-6 py-2.5 text-sm font-semibold"
             >
               <Eye className="w-4 h-4" />
               <span>View Workspace & Files</span>
@@ -874,7 +872,7 @@ export default function CodeDropPage() {
 
             <button
               onClick={() => setSendModalOpen(true)}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-2xl bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-white font-bold text-sm transition-all"
+              className="btn-secondary w-full sm:w-auto px-6 py-2.5 text-sm font-semibold"
             >
               <Send className="w-4 h-4" />
               <span>Send to Device</span>
@@ -886,7 +884,7 @@ export default function CodeDropPage() {
                 setRawFiles([]);
                 setCompletedWorkspaceId(null);
               }}
-              className="w-full sm:w-auto px-6 py-3 rounded-2xl border border-neutral-300 dark:border-neutral-700 text-xs font-semibold text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              className="btn-secondary w-full sm:w-auto px-6 py-2.5 text-sm font-semibold"
             >
               Upload Another
             </button>

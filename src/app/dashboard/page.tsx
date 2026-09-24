@@ -154,26 +154,25 @@ export default function DashboardPage() {
         <div className="flex flex-wrap items-center gap-2">
           <Link
             href="/codedrop"
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/25 transition-all"
+            className="btn-primary text-xs py-2 px-3.5"
           >
-            <FolderCode className="w-4 h-4" />
+            <FolderCode className="w-3.5 h-3.5" />
             <span>Upload Workspace</span>
           </Link>
 
           <Link
             href="/upload"
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 font-bold text-xs hover:bg-neutral-800 dark:hover:bg-neutral-100 shadow-sm transition-all"
+            className="btn-secondary text-xs py-2 px-3.5"
           >
-            <Upload className="w-4 h-4" />
+            <Upload className="w-3.5 h-3.5" />
             <span>Upload File</span>
           </Link>
 
           <button
             onClick={() => setSendModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-semibold text-xs hover:bg-neutral-100 dark:hover:bg-neutral-700 shadow-sm transition-all"
+            className="btn-secondary text-xs py-2 px-3.5"
           >
-            <Send className="w-4 h-4 text-teal-500" />
-            <span>Send to Device</span>
+            <Send className="w-3.5 h-3.5" />
           </button>
 
           <Link

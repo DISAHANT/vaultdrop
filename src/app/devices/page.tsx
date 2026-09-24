@@ -202,8 +202,8 @@ export default function DevicesPage() {
                   key={device.id}
                   className={`glass-card p-5 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 border ${
                     isCurrent
-                      ? 'border-cyan-400/60 shadow-[0_4px_25px_rgba(0,240,255,0.25)] bg-[var(--bg-card)]'
-                      : 'border-[var(--border-primary)] hover:border-cyan-400/40 bg-[var(--bg-card)]'
+                      ? 'border-neutral-400 dark:border-white/30 bg-neutral-100/50 dark:bg-white/[0.04] shadow-sm'
+                      : 'border-[var(--border-primary)] hover:border-neutral-400 dark:hover:border-white/20 bg-[var(--bg-card)]'
                   }`}
                 >
                   <div className="flex items-center gap-4">
@@ -213,9 +213,9 @@ export default function DevicesPage() {
                         <Icon className="w-6 h-6 text-[var(--text-primary)]" />
                       </div>
                       <span
-                        className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-[var(--bg-card)] ${
+                        className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[var(--bg-card)] ${
                           device.computedStatus === 'online'
-                            ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]'
+                            ? 'bg-emerald-500'
                             : device.computedStatus === 'idle'
                             ? 'bg-amber-500'
                             : 'bg-neutral-400'

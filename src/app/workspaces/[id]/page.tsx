@@ -234,7 +234,7 @@ export default function WorkspaceDetailPage({ params }: { params: { id: string }
             <a
               href={`/api/workspaces/${workspace.id}/download`}
               download={`${workspace.name}.zip`}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold transition-all shadow-lg shadow-cyan-600/25"
+              className="btn-primary text-xs py-2 px-4"
             >
               <Download className="w-4 h-4" />
               <span>Download ZIP</span>
@@ -388,8 +388,8 @@ export default function WorkspaceDetailPage({ params }: { params: { id: string }
               onClick={() => setSelectedCategory(cat)}
               className={`px-3 py-1.5 rounded-xl font-medium capitalize transition-all ${
                 selectedCategory === cat
-                  ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/20'
-                  : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700'
+                  ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-950 font-semibold shadow-sm'
+                  : 'bg-neutral-100 dark:bg-white/[0.05] text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
               }`}
             >
               {cat}
@@ -400,8 +400,8 @@ export default function WorkspaceDetailPage({ params }: { params: { id: string }
             onClick={() => setShowOnlySensitive(!showOnlySensitive)}
             className={`px-3 py-1.5 rounded-xl font-medium transition-all inline-flex items-center gap-1.5 ${
               showOnlySensitive
-                ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20'
-                : 'bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700'
+                ? 'bg-amber-500 text-neutral-950 font-semibold shadow-sm'
+                : 'bg-neutral-100 dark:bg-white/[0.05] text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
             }`}
           >
             <Lock className="w-3 h-3" />

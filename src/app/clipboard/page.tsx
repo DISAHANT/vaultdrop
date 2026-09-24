@@ -197,16 +197,16 @@ export default function ClipboardPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={handlePasteFromClipboard}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition-all shadow-lg shadow-cyan-600/25"
+            className="btn-primary text-xs py-2 px-4"
           >
-            <ClipboardPaste className="w-4 h-4" />
+            <ClipboardPaste className="w-3.5 h-3.5" />
             <span>Paste from OS</span>
           </button>
           <button
             onClick={() => setComposerOpen(!composerOpen)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-semibold text-xs hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-all shadow-sm"
+            className="btn-secondary text-xs py-2 px-3.5"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-3.5 h-3.5" />
             <span>Compose</span>
           </button>
         </div>
@@ -291,7 +291,7 @@ export default function ClipboardPage() {
               <button
                 type="submit"
                 disabled={!composedText.trim()}
-                className="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white font-semibold text-xs shadow-md shadow-cyan-600/20 transition-all"
+                className="btn-primary text-xs py-2 px-4"
               >
                 Save & Broadcast
               </button>

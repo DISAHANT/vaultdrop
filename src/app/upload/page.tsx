@@ -456,12 +456,12 @@ export default function UploadPage() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-10 md:py-16">
       <div className="text-center mb-10 space-y-2">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-[0_0_15px_rgba(0,240,255,0.15)] mb-1">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium uppercase tracking-wider bg-neutral-100 dark:bg-white/[0.04] text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-white/10 mb-1">
           <Upload className="w-3.5 h-3.5" />
           <span>High-Speed Secure Bridge</span>
         </div>
-        <h1 className="text-3xl md:text-5xl font-black tracking-tight text-neutral-900 dark:text-white">
-          Upload <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">Files</span>
+        <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-neutral-900 dark:text-white">
+          Upload Files
         </h1>
         <p className="text-sm text-neutral-600 dark:text-neutral-400 max-w-md mx-auto">
           Stage multiple files, configure end-to-end expiration and download limits, and share with a unique secure token.
@@ -484,17 +484,17 @@ export default function UploadPage() {
           disabled={uploading}
           onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ''; }}
         />
-        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-2 bg-cyan-500/10 border border-cyan-500/20 shadow-[0_0_20px_rgba(0,240,255,0.25),inset_0_1px_1px_rgba(255,255,255,0.2)]">
-          <Upload className="w-7 h-7 text-cyan-400" />
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-2 bg-neutral-100 dark:bg-white/[0.05] border border-neutral-200 dark:border-white/10 text-neutral-800 dark:text-neutral-200 shadow-sm">
+          <Upload className="w-6 h-6" />
         </div>
         <div className="text-center space-y-1">
-          <p className="font-bold text-base text-neutral-900 dark:text-white">Drag & drop files here</p>
+          <p className="font-semibold text-base text-neutral-900 dark:text-white">Drag & drop files here</p>
           <p className="text-sm text-neutral-500 dark:text-neutral-400">
-            or <span className="underline font-semibold text-cyan-400 cursor-pointer">browse files from device</span> • Max {formatBytes(CONFIG.MAX_FILE_SIZE)} per file
+            or <span className="underline font-semibold text-neutral-900 dark:text-neutral-200 cursor-pointer">browse files from device</span> • Max {formatBytes(CONFIG.MAX_FILE_SIZE)} per file
           </p>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border border-white/10 bg-white/5 dark:bg-white/[0.04] mt-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
-            <Camera className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Tip: Press <kbd className="font-mono bg-black/40 px-1.5 py-0.5 rounded border border-white/10 text-cyan-300">Ctrl+V</kbd> to paste screenshots directly</span>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border border-neutral-200 dark:border-white/10 bg-neutral-100/70 dark:bg-white/[0.04] mt-2">
+            <Camera className="w-3.5 h-3.5 text-neutral-500 dark:text-neutral-400" />
+            <span>Tip: Press <kbd className="font-mono bg-neutral-200 dark:bg-neutral-800 px-1.5 py-0.5 rounded border border-neutral-300 dark:border-white/10 text-neutral-800 dark:text-neutral-200">Ctrl+V</kbd> to paste screenshots directly</span>
           </div>
         </div>
       </div>
@@ -504,7 +504,7 @@ export default function UploadPage() {
         <div className="mb-8 animate-fade-in">
           <div className="flex items-center justify-between mb-3 px-1">
             <span className="text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
-              {files.length} file{files.length > 1 ? 's' : ''} staged • <span className="text-cyan-400 font-mono">{formatBytes(totalSize)}</span>
+              {files.length} file{files.length > 1 ? 's' : ''} staged • <span className="text-neutral-900 dark:text-neutral-200 font-mono">{formatBytes(totalSize)}</span>
             </span>
             {!uploading && (
               <button onClick={clearAll} className="text-xs font-semibold text-neutral-400 hover:text-rose-400 transition-colors cursor-pointer">
@@ -523,8 +523,8 @@ export default function UploadPage() {
                     {f.preview ? (
                       <img src={f.preview} alt="" className="w-11 h-11 rounded-xl object-cover border border-white/15 shadow-sm" />
                     ) : (
-                      <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-cyan-500/10 border border-cyan-500/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)] shrink-0">
-                        <Icon className="w-5 h-5 text-cyan-400" />
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-neutral-100 dark:bg-white/[0.05] border border-neutral-200 dark:border-white/10 text-neutral-700 dark:text-neutral-300 shrink-0">
+                        <Icon className="w-5 h-5" />
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
@@ -536,7 +536,7 @@ export default function UploadPage() {
                               <CheckCircle2 className="w-3.5 h-3.5" /> Sent
                             </span>
                           ) : (
-                            <span className="text-cyan-400 font-mono text-xs font-bold shrink-0">
+                            <span className="text-neutral-900 dark:text-neutral-200 font-mono text-xs font-bold shrink-0">
                               {filePct}%
                             </span>
                           )
@@ -553,12 +553,11 @@ export default function UploadPage() {
 
                   {/* Individual file progress bar during upload */}
                   {uploading && filePct !== undefined && (
-                    <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden mt-1.5">
+                    <div className="w-full h-1.5 bg-neutral-200 dark:bg-white/[0.08] rounded-full overflow-hidden mt-1.5">
                       <div
-                        className="h-full rounded-full transition-all duration-150"
+                        className="h-full rounded-full transition-all duration-150 bg-neutral-900 dark:bg-white"
                         style={{
                           width: `${filePct}%`,
-                          background: filePct >= 100 ? '#10b981' : 'linear-gradient(90deg, #00f0ff, #0077fe)',
                         }}
                       />
                     </div>
@@ -574,8 +573,8 @@ export default function UploadPage() {
       {files.length > 0 && !uploading && (
         <div className="glass-card p-6 md:p-8 mb-8 space-y-6 animate-fade-up">
           <div className="flex items-center gap-3 border-b border-black/[0.06] dark:border-white/[0.08] pb-4">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-cyan-500/10 border border-cyan-500/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]">
-              <Lock className="w-4 h-4 text-cyan-400" />
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-neutral-100 dark:bg-white/[0.05] border border-neutral-200 dark:border-white/10 text-neutral-800 dark:text-neutral-200">
+              <Lock className="w-4 h-4" />
             </div>
             <div>
               <h3 className="font-bold text-base text-neutral-900 dark:text-white">Share Settings</h3>
@@ -630,14 +629,14 @@ export default function UploadPage() {
 
       {/* Main Upload Progress Card */}
       {uploading && uploadProgress && (
-        <div className="glass-card p-6 md:p-8 mb-6 border border-cyan-500/40 shadow-[0_20px_50px_rgba(0,0,0,0.9),0_0_30px_rgba(0,240,255,0.2)] animate-fade-up space-y-5">
+        <div className="glass-card p-6 md:p-8 mb-6 border border-neutral-200 dark:border-white/10 shadow-2xl animate-fade-up space-y-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-cyan-500/10 border border-cyan-500/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-neutral-100 dark:bg-white/[0.05] border border-neutral-200 dark:border-white/10 text-neutral-800 dark:text-neutral-200">
                 {uploadProgress.phase === 'completed' ? (
-                  <CheckCircle2 className="w-6 h-6 text-emerald-400 animate-scale-in" />
+                  <CheckCircle2 className="w-5 h-5 text-emerald-500 animate-scale-in" />
                 ) : (
-                  <Activity className="w-6 h-6 animate-pulse text-cyan-400" />
+                  <Activity className="w-5 h-5 animate-pulse text-neutral-400" />
                 )}
               </div>
               <div>
@@ -653,7 +652,7 @@ export default function UploadPage() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <span className="text-2xl font-black font-mono text-cyan-400 drop-shadow-[0_0_12px_rgba(0,240,255,0.5)]">
+              <span className="text-2xl font-bold font-mono text-neutral-900 dark:text-white">
                 {uploadProgress.percent}%
               </span>
               <button
@@ -666,33 +665,29 @@ export default function UploadPage() {
             </div>
           </div>
 
-          {/* Progress Bar with glowing gradient */}
-          <div className="relative w-full h-3 rounded-full overflow-hidden bg-black/60 dark:bg-black/90 border border-white/10 shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)]">
+          {/* Progress Bar */}
+          <div className="relative w-full h-2 rounded-full overflow-hidden bg-neutral-200 dark:bg-white/[0.08]">
             <div
-              className="h-full rounded-full transition-all duration-150 relative overflow-hidden"
+              className="h-full rounded-full transition-all duration-150 bg-neutral-900 dark:bg-white"
               style={{
                 width: `${uploadProgress.percent}%`,
-                background: 'linear-gradient(90deg, #00f59b 0%, #00f0ff 60%, #0077fe 100%)',
-                boxShadow: '0 0 16px rgba(0, 240, 255, 0.6)',
               }}
-            >
-              <div className="absolute inset-0 bg-white/20 animate-pulse" />
-            </div>
+            />
           </div>
 
           {/* Live Net Speed & Meta Info */}
-          <div className="flex items-center justify-between text-xs pt-2 border-t border-white/[0.08]">
-            <div className="flex items-center gap-2 font-medium text-emerald-400">
-              <span className="relative flex h-2.5 w-2.5">
+          <div className="flex items-center justify-between text-xs pt-2 border-t border-black/[0.06] dark:border-white/[0.08]">
+            <div className="flex items-center gap-2 font-medium text-emerald-600 dark:text-emerald-400">
+              <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
               <span className="font-mono font-bold">{uploadProgress.speed}</span>
               <span className="text-neutral-500 font-normal">• Net Upload Speed</span>
             </div>
 
             {uploadProgress.eta && (
-              <div className="flex items-center gap-1.5 text-amber-400 font-medium">
+              <div className="flex items-center gap-1.5 text-amber-500 dark:text-amber-400 font-medium">
                 <Clock className="w-3.5 h-3.5" />
                 <span>{uploadProgress.eta}</span>
               </div>
@@ -703,8 +698,8 @@ export default function UploadPage() {
 
       {/* Upload Button */}
       {files.length > 0 && !uploading && (
-        <button onClick={handleUpload} className="btn-primary w-full py-4 text-base font-bold shadow-skeuo-btn tracking-wide">
-          <Upload className="w-5 h-5 drop-shadow" />
+        <button onClick={handleUpload} className="btn-primary w-full py-3.5 text-sm font-semibold tracking-normal">
+          <Upload className="w-4 h-4" />
           Create Share ({files.length} file{files.length > 1 ? 's' : ''} • {formatBytes(totalSize)})
         </button>
       )}

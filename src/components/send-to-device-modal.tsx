@@ -232,7 +232,7 @@ export function SendToDeviceModal({
                       <span
                         className={`w-2 h-2 rounded-full ${
                           d.computedStatus === 'online'
-                            ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]'
+                            ? 'bg-emerald-500'
                             : d.computedStatus === 'idle'
                             ? 'bg-amber-500'
                             : 'bg-neutral-400'

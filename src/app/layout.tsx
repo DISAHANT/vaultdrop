@@ -22,13 +22,9 @@ import { IncomingTransferListener } from '@/components/incoming-transfer-listene
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="relative overflow-x-hidden min-h-screen selection:bg-cyan-400 selection:text-black">
+      <body className="relative overflow-x-hidden min-h-screen bg-black text-white selection:bg-neutral-800 selection:text-white">
         <ThemeProvider>
           <AuthProvider>
-            {/* Ambient Background Glow Meshes for Glassmorphism depth */}
-            <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[350px] bg-gradient-to-b from-cyan-500/15 via-blue-600/10 to-transparent blur-[130px] pointer-events-none -z-10 opacity-70 dark:opacity-80" />
-            <div className="fixed bottom-0 right-[-10%] w-[600px] h-[500px] bg-indigo-600/10 dark:bg-indigo-600/[0.06] blur-[160px] pointer-events-none -z-10" />
-
             <div className="min-h-screen flex flex-col">
               <Navbar />
               <main className="flex-1">{children}</main>

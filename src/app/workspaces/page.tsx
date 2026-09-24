@@ -119,7 +119,7 @@ export default function WorkspacesPage() {
         </p>
         <Link
           href="/login?callbackUrl=/workspaces"
-          className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-sm shadow-lg shadow-cyan-600/25 transition-all"
+          className="btn-primary px-6 py-2.5 text-sm"
         >
           Sign In to VaultDrop
         </Link>
@@ -146,7 +146,7 @@ export default function WorkspacesPage() {
 
         <Link
           href="/codedrop"
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-sm shadow-lg shadow-cyan-600/25 transition-all self-start sm:self-auto"
+          className="btn-primary px-5 py-2.5 text-sm self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
           <span>Upload Workspace</span>
@@ -189,7 +189,7 @@ export default function WorkspacesPage() {
           </p>
           <Link
             href="/codedrop"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-cyan-600 text-white font-semibold text-xs hover:bg-cyan-500 shadow-md shadow-cyan-600/20"
+            className="btn-primary px-5 py-2.5 text-xs"
           >
             <FolderCode className="w-4 h-4" />
             <span>Open CodeDrop</span>
