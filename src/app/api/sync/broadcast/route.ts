@@ -58,6 +58,16 @@ export async function POST(request: Request) {
       timestamp: Date.now(),
     };
 
+    const { recordClip } = await import('@/lib/services/sync-service');
+    const savedClip = await recordClip({
+      roomId: payload.roomId,
+      senderId: payload.senderId,
+      senderName: payload.senderName,
+      type: payload.type,
+      content: payload.text,
+    });
+    payload.id = savedClip.id;
+
     const result = await broadcastClipboardEvent(payload);
 
     return NextResponse.json({

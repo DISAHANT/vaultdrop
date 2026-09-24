@@ -23,7 +23,8 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  shares Share[]
+  shares       Share[]
+  syncSessions SyncSession[]
 
   @@map("users")
 }
@@ -89,4 +90,69 @@ model DownloadEvent {
   @@index([fileId])
   @@index([downloadedAt])
   @@map("download_events")
+}
+
+enum SessionType {
+  TEMPORARY
+  PERMANENT
+}
+
+enum SyncStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+model SyncSession {
+  id           String      @id @default(cuid())
+  code         String      @unique @map("code") @db.VarChar(20)
+  title        String?     @db.VarChar(255)
+  type         SessionType @default(TEMPORARY)
+  status       SyncStatus  @default(ACTIVE)
+  ownerId      String?     @map("owner_id")
+  expiresAt    DateTime?   @map("expires_at")
+  lastActiveAt DateTime    @default(now()) @map("last_active_at")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  owner        User?        @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  clips        SyncClip[]
+  devices      SyncDevice[]
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("sync_sessions")
+}
+
+model SyncClip {
+  id          String      @id @default(cuid())
+  sessionId   String      @map("session_id")
+  senderId    String      @map("sender_id") @db.VarChar(100)
+  senderName  String      @map("sender_name") @db.VarChar(100)
+  type        String      @default("text") @db.VarChar(20) // 'text' | 'url' | 'image'
+  content     String      @db.LongText
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  session     SyncSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([createdAt])
+  @@map("sync_clips")
+}
+
+model SyncDevice {
+  id          String      @id @default(cuid())
+  sessionId   String      @map("session_id")
+  deviceId    String      @map("device_id") @db.VarChar(100)
+  deviceName  String      @map("device_name") @db.VarChar(100)
+  isOnline    Boolean     @default(true) @map("is_online")
+  lastSeenAt  DateTime    @default(now()) @map("last_seen_at")
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  session     SyncSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, deviceId])
+  @@index([sessionId])
+  @@map("sync_devices")
 }
