@@ -40,21 +40,39 @@ export async function GET(
       return NextResponse.json({ error: 'File not found.' }, { status: 404 });
     }
 
-    // Get file data via storage abstraction
-    const storage = getStorageService();
-    const file = await storage.getFile(params.fileId);
-    if (!file) {
-      return NextResponse.json({ error: 'File data not found.' }, { status: 404 });
-    }
-
     // Record download
     const userAgent = request.headers.get('user-agent') || '';
-    const result = await recordDownload(share.id, file.id, ip, userAgent);
+    const result = await recordDownload(share.id, fileInShare.id, ip, userAgent);
     if (!result.allowed) {
       return NextResponse.json({ error: result.reason }, { status: 410 });
     }
 
-    // Return file with proper headers
+    const { createPresignedDownloadUrl } = await import('@/lib/filebase');
+    const urlObj = new URL(request.url);
+    const wantsJson = urlObj.searchParams.get('json') === 'true' || request.headers.get('accept')?.includes('application/json');
+
+    // Deliver via Filebase pre-signed GET URL if fileKey is available
+    if (fileInShare.fileKey) {
+      const downloadUrl = await createPresignedDownloadUrl({
+        fileKey: fileInShare.fileKey,
+        originalFilename: fileInShare.originalFilename,
+        expiresInSeconds: 60, // 60s temporary URL as per requirement
+      });
+
+      if (wantsJson) {
+        return NextResponse.json({ downloadUrl, filename: fileInShare.originalFilename });
+      }
+
+      return NextResponse.redirect(downloadUrl, 302);
+    }
+
+    // Fallback for legacy DB binary blobs
+    const storage = getStorageService();
+    const file = await storage.getFile(params.fileId);
+    if (!file || !file.fileData) {
+      return NextResponse.json({ error: 'File data not found.' }, { status: 404 });
+    }
+
     const sanitizedFilename = file.originalFilename.replace(/[^\w\s.\-()]/g, '_');
 
     return new NextResponse(new Uint8Array(file.fileData), {

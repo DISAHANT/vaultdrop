@@ -14,12 +14,13 @@ export interface StoredFileMetadata {
   originalFilename: string;
   mimeType: string;
   fileSize: bigint;
+  fileKey?: string | null;
   checksum: string | null;
   createdAt: Date;
 }
 
 export interface StoredFileWithData extends StoredFileMetadata {
-  fileData: Buffer;
+  fileData?: Buffer | null;
 }
 
 export interface StorageService {

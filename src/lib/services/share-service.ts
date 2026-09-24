@@ -35,6 +35,7 @@ export interface ShareWithFiles {
     originalFilename: string;
     mimeType: string;
     fileSize: bigint;
+    fileKey?: string | null;
     checksum: string | null;
     createdAt: Date;
   }[];
@@ -94,6 +95,7 @@ export async function createShare(options: CreateShareOptions): Promise<ShareWit
       originalFilename: f.originalFilename,
       mimeType: f.mimeType,
       fileSize: f.fileSize,
+      fileKey: f.fileKey,
       checksum: f.checksum,
       createdAt: f.createdAt,
     })),
@@ -113,6 +115,7 @@ export async function getShareByCode(code: string): Promise<ShareWithFiles | nul
           originalFilename: true,
           mimeType: true,
           fileSize: true,
+          fileKey: true,
           checksum: true,
           createdAt: true,
         },
@@ -123,8 +126,10 @@ export async function getShareByCode(code: string): Promise<ShareWithFiles | nul
 
   if (!share) return null;
 
-  // Auto-expire check
+  // Auto-expire check & Filebase cleanup
   if (share.status === 'ACTIVE' && isExpired(share.expiresAt)) {
+    const storage = getStorageService();
+    await storage.deleteShareFiles(share.id);
     await prisma.share.update({
       where: { id: share.id },
       data: { status: 'EXPIRED' },
@@ -178,10 +183,15 @@ export async function recordDownload(
   }
 
   // Atomic increment + event creation
+  const isNowExhausted = Boolean(share.maxDownloads && (share.downloadCount + 1) >= share.maxDownloads);
+
   await prisma.$transaction([
     prisma.share.update({
       where: { id: shareId },
-      data: { downloadCount: { increment: 1 } },
+      data: {
+        downloadCount: { increment: 1 },
+        ...(isNowExhausted ? { status: 'EXPIRED' } : {}),
+      },
     }),
     prisma.downloadEvent.create({
       data: {
@@ -192,6 +202,18 @@ export async function recordDownload(
       },
     }),
   ]);
+
+  if (isNowExhausted) {
+    // Schedule Filebase cleanup shortly after URL generation to allow current download to begin
+    setTimeout(async () => {
+      try {
+        const storage = getStorageService();
+        await storage.deleteShareFiles(shareId);
+      } catch (err) {
+        console.error('Error cleaning up exhausted share files:', err);
+      }
+    }, 65000); // 65 seconds (after 60s signed URL expires)
+  }
 
   return { allowed: true };
 }

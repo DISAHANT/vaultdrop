@@ -51,7 +51,7 @@ export class DatabaseStorageService implements StorageService {
     if (!file) return null;
     return {
       ...file,
-      fileData: Buffer.from(file.fileData),
+      fileData: file.fileData ? Buffer.from(file.fileData) : null,
     };
   }
 

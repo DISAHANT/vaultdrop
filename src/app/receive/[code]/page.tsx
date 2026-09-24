@@ -110,12 +110,30 @@ export default function ShareViewPage() {
   const downloadFile = async (file: ShareFile) => {
     setDownloading(file.id);
     try {
-      const res = await fetch(`/api/shares/${code}/files/${file.id}/download`);
+      const res = await fetch(`/api/shares/${code}/files/${file.id}/download?json=true`, {
+        headers: { Accept: 'application/json' },
+      });
       if (!res.ok) {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         toast.error(data.error || 'Download failed');
         return;
       }
+
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const data = await res.json();
+        if (data.downloadUrl) {
+          const a = document.createElement('a');
+          a.href = data.downloadUrl;
+          a.download = file.originalFilename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          toast.success(`Downloading "${file.originalFilename}"`);
+          return;
+        }
+      }
+
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');

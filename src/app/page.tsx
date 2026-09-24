@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Upload, Download, Shield, Clock, Lock, QrCode, ArrowRight, Zap, Globe, Eye } from 'lucide-react';
+import { Upload, Download, Shield, Clock, Lock, QrCode, ArrowRight, Zap, Globe, Eye, Radio } from 'lucide-react';
 
 export default function HomePage() {
   return (
@@ -18,12 +18,12 @@ export default function HomePage() {
           </div>
 
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold tracking-tight mb-6 animate-fade-up">
-            Share files<br />
-            <span style={{ color: 'var(--accent)' }}>quickly & securely</span>
+            Share files & clipboard<br />
+            <span style={{ color: 'var(--accent)' }}>instantly across devices</span>
           </h1>
 
           <p className="text-lg md:text-xl max-w-2xl mx-auto mb-10 animate-fade-up" style={{ color: 'var(--text-secondary)', animationDelay: '0.1s' }}>
-            Upload files, get a short code, share the code, download anywhere. No account needed for basic sharing.
+            Store files directly on Filebase object storage, or pair devices with Live Sync for real-time clipboard synchronization.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-up" style={{ animationDelay: '0.2s' }}>
@@ -34,6 +34,10 @@ export default function HomePage() {
             <Link href="/receive" className="btn-secondary text-base px-8 py-4 w-full sm:w-auto">
               <Download className="w-5 h-5" />
               Receive Files
+            </Link>
+            <Link href="/sync" className="btn-secondary text-base px-8 py-4 w-full sm:w-auto border-emerald-500/30 text-emerald-400 hover:border-emerald-500">
+              <Radio className="w-5 h-5 animate-pulse text-emerald-400" />
+              Live Sync Clipboard
             </Link>
           </div>
         </div>

@@ -61,7 +61,8 @@ model File {
   originalFilename String   @map("original_filename") @db.VarChar(500)
   mimeType         String   @map("mime_type") @db.VarChar(255)
   fileSize         BigInt   @map("file_size")
-  fileData         Bytes    @map("file_data") @db.LongBlob
+  fileData         Bytes?   @map("file_data") @db.LongBlob
+  fileKey          String?  @map("file_key") @db.VarChar(500)
   checksum         String?  @db.VarChar(64)
   createdAt        DateTime @default(now()) @map("created_at")
 
@@ -69,6 +70,7 @@ model File {
   downloadEvents DownloadEvent[]
 
   @@index([shareId])
+  @@index([fileKey])
   @@map("files")
 }
 

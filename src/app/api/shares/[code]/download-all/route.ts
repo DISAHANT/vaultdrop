@@ -49,7 +49,7 @@ export async function GET(
     // Add each file to the archive
     for (const fileMeta of share.files) {
       const file = await storage.getFile(fileMeta.id);
-      if (file) {
+      if (file && file.fileData) {
         archive.append(file.fileData, { name: file.originalFilename });
       }
     }

@@ -5,12 +5,13 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { ThemeToggle } from './theme-toggle';
-import { Shield, Upload, Download, LayoutDashboard, Menu, X, LogIn, LogOut, User } from 'lucide-react';
+import { Shield, Upload, Download, LayoutDashboard, Menu, X, LogIn, LogOut, User, Radio } from 'lucide-react';
 
 const navLinks = [
   { href: '/', label: 'Home', icon: Shield },
   { href: '/upload', label: 'Upload', icon: Upload },
   { href: '/receive', label: 'Receive', icon: Download },
+  { href: '/sync', label: 'Live Sync', icon: Radio },
 ];
 
 export function Navbar() {

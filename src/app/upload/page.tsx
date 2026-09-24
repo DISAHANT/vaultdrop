@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Upload, X, FileIcon, Clock, Download, Lock, Loader2, FileText, Image, Film, Music, Archive } from 'lucide-react';
+import { Upload, X, FileIcon, Clock, Download, Lock, Loader2, FileText, Image, Film, Music, Archive, Camera } from 'lucide-react';
 import { CONFIG, formatBytes } from '@/lib/config';
 
 function getFileIcon(mimeType: string) {
@@ -87,39 +87,172 @@ export default function UploadPage() {
     if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
   };
 
+  // Support pasting screenshots directly from clipboard
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+        return;
+      }
+
+      const items = e.clipboardData?.items;
+      if (items) {
+        const imageFiles: File[] = [];
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          if (item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (file) {
+              const now = new Date();
+              const dateStr = now.toISOString().slice(0, 19).replace(/[:T]/g, '-');
+              const ext = file.type.split('/')[1] || 'png';
+              const namedFile = new File([file], `screenshot-${dateStr}.${ext}`, { type: file.type });
+              imageFiles.push(namedFile);
+            }
+          }
+        }
+        if (imageFiles.length > 0) {
+          e.preventDefault();
+          addFiles(imageFiles);
+          toast.success(`Added ${imageFiles.length} screenshot${imageFiles.length > 1 ? 's' : ''} from clipboard! 📸`);
+        }
+      }
+    };
+
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [addFiles]);
+
   const handleUpload = async () => {
     if (files.length === 0) { toast.error('Select at least one file'); return; }
     setUploading(true);
     setProgress(0);
 
     try {
-      const formData = new FormData();
-      formData.append('title', title);
-      formData.append('description', description);
-      if (password) formData.append('password', password);
-      formData.append('expiresInSeconds', expiresIn.toString());
-      formData.append('maxDownloads', maxDownloads.toString());
-      files.forEach(f => formData.append('files', f.file));
+      // Step 1: Request pre-signed upload URLs from Filebase S3 endpoint
+      const presignRes = await fetch('/api/upload/presign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          files: files.map(f => ({
+            filename: f.file.name,
+            fileSize: f.file.size,
+            mimeType: f.file.type || 'application/octet-stream',
+          })),
+        }),
+      });
 
-      // Simulate progress for UX
-      const progressInterval = setInterval(() => {
-        setProgress(prev => Math.min(prev + Math.random() * 15, 90));
-      }, 300);
-
-      const res = await fetch('/api/shares', { method: 'POST', body: formData });
-      clearInterval(progressInterval);
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Upload failed');
+      if (!presignRes.ok) {
+        const errorData = await presignRes.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to prepare upload');
       }
 
+      const presignData: {
+        shareCode: string;
+        files: Array<{
+          presignedUrl: string;
+          fileKey: string;
+          filename: string;
+          fileSize: number;
+          mimeType: string;
+        }>;
+      } = await presignRes.json();
+
+      // Step 2: Direct upload to Filebase via PUT using pre-signed URLs with progress tracking
+      const fileBytesLoaded: number[] = new Array(files.length).fill(0);
+      const totalBytes = files.reduce((s, f) => s + f.file.size, 0);
+
+      const updateOverallProgress = (index: number, loaded: number) => {
+        fileBytesLoaded[index] = loaded;
+        const totalLoaded = fileBytesLoaded.reduce((a, b) => a + b, 0);
+        const percent = totalBytes > 0 ? (totalLoaded / totalBytes) * 90 : 50;
+        setProgress(percent);
+      };
+
+      try {
+        await Promise.all(
+          presignData.files.map((p, index) => {
+            const staged = files[index];
+            return new Promise<void>((resolve, reject) => {
+              const xhr = new XMLHttpRequest();
+              xhr.open('PUT', p.presignedUrl);
+              xhr.setRequestHeader('Content-Type', staged.file.type || 'application/octet-stream');
+
+              xhr.upload.onprogress = (event) => {
+                if (event.lengthComputable) {
+                  updateOverallProgress(index, event.loaded);
+                }
+              };
+
+              xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                  updateOverallProgress(index, staged.file.size);
+                  resolve();
+                } else {
+                  reject(new Error(`Storage PUT failed with status ${xhr.status}`));
+                }
+              };
+
+              xhr.onerror = () => reject(new Error('Network error uploading to storage'));
+              xhr.send(staged.file);
+            });
+          })
+        );
+      } catch (directUploadErr) {
+        console.warn('Direct Filebase upload failed, trying server-side proxy fallback:', directUploadErr);
+        // Fallback to server route if direct bucket PUT is blocked (e.g., local dev without bucket CORS)
+        const formData = new FormData();
+        formData.append('title', title);
+        formData.append('description', description);
+        if (password) formData.append('password', password);
+        formData.append('expiresInSeconds', expiresIn.toString());
+        formData.append('maxDownloads', maxDownloads.toString());
+        files.forEach(f => formData.append('files', f.file));
+
+        const fallbackRes = await fetch('/api/shares', { method: 'POST', body: formData });
+        if (!fallbackRes.ok) {
+          const fallbackData = await fallbackRes.json();
+          throw new Error(fallbackData.error || 'Upload failed');
+        }
+        const fallbackData = await fallbackRes.json();
+        setProgress(100);
+        toast.success('Files uploaded successfully!');
+        setTimeout(() => router.push(`/upload/success/${fallbackData.shareCode}`), 500);
+        return;
+      }
+
+      // Step 3: Complete registration in database
+      setProgress(95);
+      const completeRes = await fetch('/api/upload/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shareCode: presignData.shareCode,
+          title,
+          description,
+          password: password || undefined,
+          expiresInSeconds: expiresIn,
+          maxDownloads,
+          files: presignData.files.map(p => ({
+            fileKey: p.fileKey,
+            originalFilename: p.filename,
+            mimeType: p.mimeType,
+            fileSize: p.fileSize,
+          })),
+        }),
+      });
+
+      if (!completeRes.ok) {
+        const completeData = await completeRes.json().catch(() => ({}));
+        throw new Error(completeData.error || 'Failed to complete share registration');
+      }
+
+      const completeData = await completeRes.json();
       setProgress(100);
-      const data = await res.json();
-      toast.success('Files uploaded successfully!');
+      toast.success('Files uploaded successfully to Filebase!');
 
       setTimeout(() => {
-        router.push(`/upload/success/${data.shareCode}`);
+        router.push(`/upload/success/${completeData.shareCode}`);
       }, 500);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Upload failed');
@@ -161,6 +294,10 @@ export default function UploadPage() {
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
             or <span className="underline font-medium" style={{ color: 'var(--accent)' }}>browse files</span> • Max {formatBytes(CONFIG.MAX_FILE_SIZE)} per file
           </p>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border border-[var(--border-primary)] bg-[var(--bg-card)] mt-2">
+            <Camera className="w-3.5 h-3.5 text-[var(--accent)]" />
+            <span>Tip: Press <kbd className="font-mono bg-[var(--bg-secondary)] px-1 rounded border border-[var(--border-secondary)]">Ctrl+V</kbd> to paste screenshots directly</span>
+          </div>
         </div>
       </div>
 

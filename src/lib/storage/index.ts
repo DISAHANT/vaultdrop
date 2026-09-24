@@ -1,3 +1,4 @@
+import { FilebaseStorageService } from './filebase-storage';
 import { DatabaseStorageService } from './database-storage';
 import type { StorageService } from './storage-service';
 
@@ -7,13 +8,11 @@ let storageInstance: StorageService | null = null;
 
 /**
  * Factory function for storage service.
- * Currently returns DatabaseStorageService.
- * To migrate to S3/R2, create ObjectStorageService implementing StorageService
- * and change this factory.
+ * Returns FilebaseStorageService (S3-compatible object storage).
  */
 export function getStorageService(): StorageService {
   if (!storageInstance) {
-    storageInstance = new DatabaseStorageService();
+    storageInstance = new FilebaseStorageService();
   }
   return storageInstance;
 }
