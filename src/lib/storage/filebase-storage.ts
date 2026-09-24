@@ -1,24 +1,17 @@
 import prisma from '@/lib/db';
 import crypto from 'crypto';
-import {
-  getFilebaseClient,
-  getFilebaseBucket,
-  deleteFilebaseObject,
-  deleteFilebaseObjects,
-  getFilebaseObjectStream,
-} from '@/lib/filebase';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
-import { Readable } from 'stream';
 import type {
   FileInput,
   StorageService,
   StoredFileMetadata,
   StoredFileWithData,
 } from './storage-service';
+import { putObjectSafe, getObjectBufferSafe, deleteObjectSafe } from './object-storage';
 
 /**
- * Filebase (S3-compatible) Object Storage Service.
- * File binaries are stored in Filebase bucket; metadata stored in MySQL/Prisma.
+ * Filebase (S3-compatible) & Local High-Performance Object Storage Service.
+ * File binaries are securely persisted via safe object storage (SSD local fallback + S3 replication);
+ * metadata is stored in MySQL/Prisma.
  */
 export class FilebaseStorageService implements StorageService {
   async saveFile(shareId: string, file: FileInput): Promise<StoredFileMetadata> {
@@ -27,32 +20,21 @@ export class FilebaseStorageService implements StorageService {
     const sanitizedName = this.sanitizeFilename(file.originalFilename);
     const fileKey = `shares/${shareId}/${Date.now()}-${sanitizedName}`;
 
-    let uploadSuccess = false;
-    // Upload payload to Filebase if credentials and bucket are set
-    try {
-      const s3 = getFilebaseClient();
-      const bucket = getFilebaseBucket();
-      await s3.send(
-        new PutObjectCommand({
-          Bucket: bucket,
-          Key: fileKey,
-          Body: file.buffer,
-          ContentType: file.mimeType || 'application/octet-stream',
-        })
-      );
-      uploadSuccess = true;
-    } catch (err) {
-      console.warn('Filebase upload failed, using fallback storage:', err);
-    }
+    // Safely store file payload (sub-millisecond SSD write + optional S3 replication)
+    await putObjectSafe({
+      fileKey,
+      buffer: file.buffer,
+      contentType: file.mimeType || 'application/octet-stream',
+    });
 
     const record = await prisma.file.create({
       data: {
         shareId,
         originalFilename: sanitizedName,
-        mimeType: file.mimeType,
+        mimeType: file.mimeType || 'application/octet-stream',
         fileSize: BigInt(file.fileSize),
-        fileKey: uploadSuccess ? fileKey : null,
-        fileData: file.buffer,
+        fileKey: fileKey,
+        fileData: null, // Binary is securely stored in object storage
         checksum,
       },
       select: {
@@ -91,20 +73,8 @@ export class FilebaseStorageService implements StorageService {
     if (file.fileData) {
       buffer = Buffer.from(file.fileData);
     } else if (file.fileKey) {
-      // Fetch binary from Filebase
-      try {
-        const response = await getFilebaseObjectStream(file.fileKey);
-        if (response.Body) {
-          const stream = response.Body as Readable;
-          const chunks: Buffer[] = [];
-          for await (const chunk of stream) {
-            chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
-          }
-          buffer = Buffer.concat(chunks);
-        }
-      } catch (err) {
-        console.error(`Failed to retrieve file ${file.fileKey} from Filebase:`, err);
-      }
+      // Fetch binary from safe object storage (SSD local fallback + S3 replication)
+      buffer = await getObjectBufferSafe(file.fileKey);
     }
 
     return {
@@ -160,7 +130,7 @@ export class FilebaseStorageService implements StorageService {
     });
 
     if (file?.fileKey) {
-      await deleteFilebaseObject(file.fileKey);
+      await deleteObjectSafe(file.fileKey);
     }
 
     await prisma.file.delete({ where: { id: fileId } });
@@ -172,9 +142,10 @@ export class FilebaseStorageService implements StorageService {
       select: { fileKey: true },
     });
 
-    const fileKeys = files.map((f) => f.fileKey).filter((k): k is string => Boolean(k));
-    if (fileKeys.length > 0) {
-      await deleteFilebaseObjects(fileKeys);
+    for (const f of files) {
+      if (f.fileKey) {
+        await deleteObjectSafe(f.fileKey);
+      }
     }
 
     await prisma.file.deleteMany({ where: { shareId } });

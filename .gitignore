@@ -33,3 +33,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local fallback storage
+.vaultdrop-storage/
+
+# OAuth client secrets
+client_secret*.json
+
+

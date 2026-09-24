@@ -3,7 +3,10 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Upload, X, FileIcon, Clock, Download, Lock, Loader2, FileText, Image, Film, Music, Archive, Camera } from 'lucide-react';
+import {
+  Upload, X, FileIcon, Clock, Download, Lock, Loader2,
+  FileText, Image, Film, Music, Archive, Camera, Activity, CheckCircle2
+} from 'lucide-react';
 import { CONFIG, formatBytes } from '@/lib/config';
 
 function getFileIcon(mimeType: string) {
@@ -15,10 +18,39 @@ function getFileIcon(mimeType: string) {
   return FileIcon;
 }
 
+function formatSpeed(bytesPerSec: number): string {
+  if (!bytesPerSec || bytesPerSec <= 0 || !isFinite(bytesPerSec)) return '0 KB/s';
+  if (bytesPerSec < 1024) return `${Math.round(bytesPerSec)} B/s`;
+  if (bytesPerSec < 1024 * 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
+  if (bytesPerSec < 1024 * 1024 * 1024) return `${(bytesPerSec / (1024 * 1024)).toFixed(1)} MB/s`;
+  return `${(bytesPerSec / (1024 * 1024 * 1024)).toFixed(2)} GB/s`;
+}
+
+function formatETA(remainingBytes: number, speedBytesPerSec: number): string {
+  if (!speedBytesPerSec || speedBytesPerSec <= 0 || remainingBytes <= 0 || !isFinite(speedBytesPerSec)) return '';
+  const seconds = Math.round(remainingBytes / speedBytesPerSec);
+  if (seconds < 1) return '< 1s left';
+  if (seconds < 60) return `~${seconds}s left`;
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `~${mins}m ${secs}s left`;
+}
+
 interface StagedFile {
   file: File;
   id: string;
   preview?: string;
+}
+
+interface UploadProgressState {
+  loaded: number;
+  total: number;
+  percent: number;
+  speed: string;
+  speedBytes: number;
+  eta: string;
+  phase: 'preparing' | 'uploading' | 'finalizing' | 'completed';
+  fileProgress: Record<string, number>; // staged file id -> percent
 }
 
 export default function UploadPage() {
@@ -27,7 +59,9 @@ export default function UploadPage() {
   const [files, setFiles] = useState<StagedFile[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgressState | null>(null);
+
+  const activeXhrsRef = useRef<XMLHttpRequest[]>([]);
 
   // Share options
   const [title, setTitle] = useState('');
@@ -69,6 +103,7 @@ export default function UploadPage() {
   }, [files]);
 
   const removeFile = (id: string) => {
+    if (uploading) return;
     setFiles(prev => {
       const file = prev.find(f => f.id === id);
       if (file?.preview) URL.revokeObjectURL(file.preview);
@@ -77,6 +112,7 @@ export default function UploadPage() {
   };
 
   const clearAll = () => {
+    if (uploading) return;
     files.forEach(f => { if (f.preview) URL.revokeObjectURL(f.preview); });
     setFiles([]);
   };
@@ -84,12 +120,14 @@ export default function UploadPage() {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
+    if (uploading) return;
     if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
   };
 
   // Support pasting screenshots directly from clipboard
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
+      if (uploading) return;
       const activeEl = document.activeElement;
       if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
         return;
@@ -121,72 +159,218 @@ export default function UploadPage() {
 
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
-  }, [addFiles]);
+  }, [addFiles, uploading]);
+
+  const cancelUpload = useCallback(() => {
+    activeXhrsRef.current.forEach(xhr => {
+      try { xhr.abort(); } catch {}
+    });
+    activeXhrsRef.current = [];
+    setUploading(false);
+    setUploadProgress(null);
+    toast.info('Upload cancelled');
+  }, []);
 
   const handleUpload = async () => {
     if (files.length === 0) { toast.error('Select at least one file'); return; }
     setUploading(true);
-    setProgress(0);
+
+    const totalBytes = files.reduce((s, f) => s + f.file.size, 0);
+    const initialFileProgress: Record<string, number> = {};
+    files.forEach(f => { initialFileProgress[f.id] = 0; });
+
+    setUploadProgress({
+      loaded: 0,
+      total: totalBytes,
+      percent: 0,
+      speed: 'Connecting...',
+      speedBytes: 0,
+      eta: '',
+      phase: 'preparing',
+      fileProgress: initialFileProgress,
+    });
+
+    const uploadViaServer = async (startSpeed: number = 0) => {
+      const formData = new FormData();
+      formData.append('title', title);
+      formData.append('description', description);
+      if (password) formData.append('password', password);
+      formData.append('expiresInSeconds', expiresIn.toString());
+      formData.append('maxDownloads', maxDownloads.toString());
+      files.forEach(f => formData.append('files', f.file));
+
+      setUploadProgress(prev => ({
+        loaded: prev?.loaded || 0,
+        total: totalBytes,
+        percent: prev?.percent || 5,
+        speed: prev?.speed || 'Connecting...',
+        speedBytes: startSpeed,
+        eta: '',
+        phase: 'uploading',
+        fileProgress: prev?.fileProgress || initialFileProgress,
+      }));
+
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        activeXhrsRef.current = [xhr];
+        xhr.open('POST', '/api/shares');
+
+        let fbLastTime = performance.now();
+        let fbLastLoaded = 0;
+        let fbSpeedEma = startSpeed;
+
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const now = performance.now();
+            const elapsed = (now - fbLastTime) / 1000;
+            if (elapsed >= 0.15 || event.loaded === event.total) {
+              const delta = event.loaded - fbLastLoaded;
+              const instantSpeed = elapsed > 0 ? delta / elapsed : 0;
+              fbSpeedEma = fbSpeedEma === 0 ? instantSpeed : fbSpeedEma * 0.7 + instantSpeed * 0.3;
+              fbLastTime = now;
+              fbLastLoaded = event.loaded;
+
+              const pct = Math.min(95, Math.round((event.loaded / event.total) * 92));
+              const rem = Math.max(0, event.total - event.loaded);
+
+              setUploadProgress({
+                loaded: event.loaded,
+                total: event.total,
+                percent: pct,
+                speed: formatSpeed(fbSpeedEma),
+                speedBytes: fbSpeedEma,
+                eta: formatETA(rem, fbSpeedEma),
+                phase: 'uploading',
+                fileProgress: { ...initialFileProgress },
+              });
+            }
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const fallbackData = JSON.parse(xhr.responseText);
+              setUploadProgress({
+                loaded: totalBytes,
+                total: totalBytes,
+                percent: 100,
+                speed: formatSpeed(fbSpeedEma),
+                speedBytes: fbSpeedEma,
+                eta: 'Complete',
+                phase: 'completed',
+                fileProgress: {},
+              });
+              toast.success('Files uploaded successfully!');
+              setTimeout(() => router.push(`/upload/success/${fallbackData.shareCode}`), 600);
+              resolve();
+            } catch {
+              reject(new Error('Invalid server response'));
+            }
+          } else {
+            try {
+              const errJson = JSON.parse(xhr.responseText);
+              reject(new Error(errJson.error || 'Upload failed'));
+            } catch {
+              reject(new Error('Upload failed'));
+            }
+          }
+        };
+
+        xhr.onerror = () => reject(new Error('Network error uploading to server'));
+        xhr.onabort = () => reject(new DOMException('Upload aborted', 'AbortError'));
+        xhr.send(formData);
+      });
+    };
 
     try {
-      // Step 1: Request pre-signed upload URLs from Filebase S3 endpoint
-      const presignRes = await fetch('/api/upload/presign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          files: files.map(f => ({
-            filename: f.file.name,
-            fileSize: f.file.size,
-            mimeType: f.file.type || 'application/octet-stream',
-          })),
-        }),
-      });
+      let directS3Success = false;
+      let lastSpeedEma = 0;
 
-      if (!presignRes.ok) {
-        const errorData = await presignRes.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to prepare upload');
-      }
-
-      const presignData: {
-        shareCode: string;
-        files: Array<{
-          presignedUrl: string;
-          fileKey: string;
-          filename: string;
-          fileSize: number;
-          mimeType: string;
-        }>;
-      } = await presignRes.json();
-
-      // Step 2: Direct upload to Filebase via PUT using pre-signed URLs with progress tracking
-      const fileBytesLoaded: number[] = new Array(files.length).fill(0);
-      const totalBytes = files.reduce((s, f) => s + f.file.size, 0);
-
-      const updateOverallProgress = (index: number, loaded: number) => {
-        fileBytesLoaded[index] = loaded;
-        const totalLoaded = fileBytesLoaded.reduce((a, b) => a + b, 0);
-        const percent = totalBytes > 0 ? (totalLoaded / totalBytes) * 90 : 50;
-        setProgress(percent);
-      };
-
+      // Attempt direct S3 pre-signed upload first
       try {
-        await Promise.all(
-          presignData.files.map((p, index) => {
+        const presignRes = await fetch('/api/upload/presign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            files: files.map(f => ({
+              filename: f.file.name,
+              fileSize: f.file.size,
+              mimeType: f.file.type || 'application/octet-stream',
+            })),
+          }),
+        });
+
+        if (presignRes.ok) {
+          const presignData: {
+            shareCode: string;
+            files: Array<{
+              presignedUrl: string;
+              fileKey: string;
+              filename: string;
+              fileSize: number;
+              mimeType: string;
+            }>;
+          } = await presignRes.json();
+
+          const fileBytesLoaded: number[] = new Array(files.length).fill(0);
+          const currentFileProgress: Record<string, number> = { ...initialFileProgress };
+
+          let lastTime = performance.now();
+          let lastLoaded = 0;
+          let speedEma = 0;
+
+          setUploadProgress(prev => prev ? { ...prev, phase: 'uploading' } : null);
+
+          const uploadPromises = presignData.files.map((p, index) => {
             const staged = files[index];
             return new Promise<void>((resolve, reject) => {
               const xhr = new XMLHttpRequest();
+              activeXhrsRef.current.push(xhr);
               xhr.open('PUT', p.presignedUrl);
-              xhr.setRequestHeader('Content-Type', staged.file.type || 'application/octet-stream');
+              xhr.setRequestHeader('Content-Type', p.mimeType || staged.file.type || 'application/octet-stream');
 
               xhr.upload.onprogress = (event) => {
                 if (event.lengthComputable) {
-                  updateOverallProgress(index, event.loaded);
+                  fileBytesLoaded[index] = event.loaded;
+                  const filePct = staged.file.size > 0 ? Math.min(100, Math.round((event.loaded / staged.file.size) * 100)) : 100;
+                  currentFileProgress[staged.id] = filePct;
+
+                  const currentTotalLoaded = fileBytesLoaded.reduce((a, b) => a + b, 0);
+                  const now = performance.now();
+                  const elapsed = (now - lastTime) / 1000;
+
+                  if (elapsed >= 0.15 || currentTotalLoaded === totalBytes) {
+                    const deltaBytes = currentTotalLoaded - lastLoaded;
+                    const instantSpeed = elapsed > 0 ? deltaBytes / elapsed : 0;
+                    speedEma = speedEma === 0 ? instantSpeed : speedEma * 0.7 + instantSpeed * 0.3;
+                    lastSpeedEma = speedEma;
+                    lastTime = now;
+                    lastLoaded = currentTotalLoaded;
+
+                    const rawPct = totalBytes > 0 ? (currentTotalLoaded / totalBytes) : 0;
+                    const overallPct = Math.min(95, Math.round(rawPct * 92));
+                    const remainingBytes = Math.max(0, totalBytes - currentTotalLoaded);
+                    const eta = speedEma > 0 && remainingBytes > 0 ? formatETA(remainingBytes, speedEma) : '';
+
+                    setUploadProgress({
+                      loaded: currentTotalLoaded,
+                      total: totalBytes,
+                      percent: overallPct,
+                      speed: formatSpeed(speedEma),
+                      speedBytes: speedEma,
+                      eta,
+                      phase: 'uploading',
+                      fileProgress: { ...currentFileProgress },
+                    });
+                  }
                 }
               };
 
               xhr.onload = () => {
                 if (xhr.status >= 200 && xhr.status < 300) {
-                  updateOverallProgress(index, staged.file.size);
+                  fileBytesLoaded[index] = staged.file.size;
+                  currentFileProgress[staged.id] = 100;
                   resolve();
                 } else {
                   reject(new Error(`Storage PUT failed with status ${xhr.status}`));
@@ -194,70 +378,75 @@ export default function UploadPage() {
               };
 
               xhr.onerror = () => reject(new Error('Network error uploading to storage'));
+              xhr.onabort = () => reject(new DOMException('Upload aborted', 'AbortError'));
               xhr.send(staged.file);
             });
-          })
-        );
-      } catch (directUploadErr) {
-        console.warn('Direct Filebase upload failed, trying server-side proxy fallback:', directUploadErr);
-        // Fallback to server route if direct bucket PUT is blocked (e.g., local dev without bucket CORS)
-        const formData = new FormData();
-        formData.append('title', title);
-        formData.append('description', description);
-        if (password) formData.append('password', password);
-        formData.append('expiresInSeconds', expiresIn.toString());
-        formData.append('maxDownloads', maxDownloads.toString());
-        files.forEach(f => formData.append('files', f.file));
+          });
 
-        const fallbackRes = await fetch('/api/shares', { method: 'POST', body: formData });
-        if (!fallbackRes.ok) {
-          const fallbackData = await fallbackRes.json();
-          throw new Error(fallbackData.error || 'Upload failed');
+          await Promise.all(uploadPromises);
+
+          // Complete registration in database
+          setUploadProgress(prev => prev ? {
+            ...prev,
+            percent: 96,
+            phase: 'finalizing',
+            eta: 'Finalizing...',
+          } : null);
+
+          const completeRes = await fetch('/api/upload/complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              shareCode: presignData.shareCode,
+              title,
+              description,
+              password: password || undefined,
+              expiresInSeconds: expiresIn,
+              maxDownloads,
+              files: presignData.files.map(p => ({
+                fileKey: p.fileKey,
+                originalFilename: p.filename,
+                mimeType: p.mimeType,
+                fileSize: p.fileSize,
+              })),
+            }),
+          });
+
+          if (!completeRes.ok) {
+            const completeData = await completeRes.json().catch(() => ({}));
+            throw new Error(completeData.error || 'Failed to complete share registration');
+          }
+
+          const completeData = await completeRes.json();
+          setUploadProgress(prev => prev ? {
+            ...prev,
+            percent: 100,
+            speed: formatSpeed(speedEma),
+            eta: 'Complete',
+            phase: 'completed',
+          } : null);
+
+          toast.success('Files uploaded successfully!');
+          directS3Success = true;
+
+          setTimeout(() => {
+            router.push(`/upload/success/${completeData.shareCode}`);
+          }, 600);
         }
-        const fallbackData = await fallbackRes.json();
-        setProgress(100);
-        toast.success('Files uploaded successfully!');
-        setTimeout(() => router.push(`/upload/success/${fallbackData.shareCode}`), 500);
-        return;
+      } catch (directErr: any) {
+        if (directErr?.name === 'AbortError') return;
+        console.warn('Direct S3 upload unavailable or rejected, switching to resilient server pipeline:', directErr);
       }
 
-      // Step 3: Complete registration in database
-      setProgress(95);
-      const completeRes = await fetch('/api/upload/complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          shareCode: presignData.shareCode,
-          title,
-          description,
-          password: password || undefined,
-          expiresInSeconds: expiresIn,
-          maxDownloads,
-          files: presignData.files.map(p => ({
-            fileKey: p.fileKey,
-            originalFilename: p.filename,
-            mimeType: p.mimeType,
-            fileSize: p.fileSize,
-          })),
-        }),
-      });
-
-      if (!completeRes.ok) {
-        const completeData = await completeRes.json().catch(() => ({}));
-        throw new Error(completeData.error || 'Failed to complete share registration');
+      if (!directS3Success) {
+        await uploadViaServer(lastSpeedEma);
       }
-
-      const completeData = await completeRes.json();
-      setProgress(100);
-      toast.success('Files uploaded successfully to Filebase!');
-
-      setTimeout(() => {
-        router.push(`/upload/success/${completeData.shareCode}`);
-      }, 500);
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.name === 'AbortError') return;
       toast.error(error instanceof Error ? error.message : 'Upload failed');
-      setProgress(0);
+      setUploadProgress(null);
     } finally {
+      activeXhrsRef.current = [];
       setUploading(false);
     }
   };
@@ -266,37 +455,46 @@ export default function UploadPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-10 md:py-16">
-      <div className="text-center mb-10">
-        <h1 className="text-3xl md:text-4xl font-bold mb-3">Upload Files</h1>
-        <p style={{ color: 'var(--text-secondary)' }}>Select files to create a secure share link</p>
+      <div className="text-center mb-10 space-y-2">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-[0_0_15px_rgba(0,240,255,0.15)] mb-1">
+          <Upload className="w-3.5 h-3.5" />
+          <span>High-Speed Secure Bridge</span>
+        </div>
+        <h1 className="text-3xl md:text-5xl font-black tracking-tight text-neutral-900 dark:text-white">
+          Upload <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">Files</span>
+        </h1>
+        <p className="text-sm text-neutral-600 dark:text-neutral-400 max-w-md mx-auto">
+          Stage multiple files, configure end-to-end expiration and download limits, and share with a unique secure token.
+        </p>
       </div>
 
       {/* Dropzone */}
       <div
-        className={`dropzone mb-6 ${dragOver ? 'drag-over' : ''}`}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        className={`dropzone mb-8 ${dragOver ? 'drag-over' : ''} ${uploading ? 'opacity-60 pointer-events-none' : ''}`}
+        onDragOver={(e) => { e.preventDefault(); if (!uploading) setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
+        onClick={() => !uploading && fileInputRef.current?.click()}
       >
         <input
           ref={fileInputRef}
           type="file"
           multiple
           className="hidden"
+          disabled={uploading}
           onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ''; }}
         />
-        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-2" style={{ background: 'var(--accent-light)' }}>
-          <Upload className="w-8 h-8" style={{ color: 'var(--accent)' }} />
+        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-2 bg-cyan-500/10 border border-cyan-500/20 shadow-[0_0_20px_rgba(0,240,255,0.25),inset_0_1px_1px_rgba(255,255,255,0.2)]">
+          <Upload className="w-7 h-7 text-cyan-400" />
         </div>
-        <div className="text-center">
-          <p className="font-semibold mb-1">Drag & drop files here</p>
-          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-            or <span className="underline font-medium" style={{ color: 'var(--accent)' }}>browse files</span> • Max {formatBytes(CONFIG.MAX_FILE_SIZE)} per file
+        <div className="text-center space-y-1">
+          <p className="font-bold text-base text-neutral-900 dark:text-white">Drag & drop files here</p>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">
+            or <span className="underline font-semibold text-cyan-400 cursor-pointer">browse files from device</span> • Max {formatBytes(CONFIG.MAX_FILE_SIZE)} per file
           </p>
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border border-[var(--border-primary)] bg-[var(--bg-card)] mt-2">
-            <Camera className="w-3.5 h-3.5 text-[var(--accent)]" />
-            <span>Tip: Press <kbd className="font-mono bg-[var(--bg-secondary)] px-1 rounded border border-[var(--border-secondary)]">Ctrl+V</kbd> to paste screenshots directly</span>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border border-white/10 bg-white/5 dark:bg-white/[0.04] mt-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
+            <Camera className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Tip: Press <kbd className="font-mono bg-black/40 px-1.5 py-0.5 rounded border border-white/10 text-cyan-300">Ctrl+V</kbd> to paste screenshots directly</span>
           </div>
         </div>
       </div>
@@ -304,29 +502,67 @@ export default function UploadPage() {
       {/* Staged Files */}
       {files.length > 0 && (
         <div className="mb-8 animate-fade-in">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium">{files.length} file{files.length > 1 ? 's' : ''} • {formatBytes(totalSize)}</span>
-            <button onClick={clearAll} className="text-sm font-medium hover:underline" style={{ color: 'var(--text-secondary)' }}>Clear all</button>
+          <div className="flex items-center justify-between mb-3 px-1">
+            <span className="text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-neutral-400">
+              {files.length} file{files.length > 1 ? 's' : ''} staged • <span className="text-cyan-400 font-mono">{formatBytes(totalSize)}</span>
+            </span>
+            {!uploading && (
+              <button onClick={clearAll} className="text-xs font-semibold text-neutral-400 hover:text-rose-400 transition-colors cursor-pointer">
+                Clear all
+              </button>
+            )}
           </div>
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {files.map((f) => {
               const Icon = getFileIcon(f.file.type);
+              const filePct = uploadProgress?.fileProgress?.[f.id];
+
               return (
-                <div key={f.id} className="file-card group animate-scale-in">
-                  {f.preview ? (
-                    <img src={f.preview} alt="" className="w-10 h-10 rounded-lg object-cover" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: 'var(--accent-light)' }}>
-                      <Icon className="w-5 h-5" style={{ color: 'var(--accent)' }} />
+                <div key={f.id} className="file-card group animate-scale-in flex-col items-stretch">
+                  <div className="flex items-center gap-4 w-full">
+                    {f.preview ? (
+                      <img src={f.preview} alt="" className="w-11 h-11 rounded-xl object-cover border border-white/15 shadow-sm" />
+                    ) : (
+                      <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-cyan-500/10 border border-cyan-500/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)] shrink-0">
+                        <Icon className="w-5 h-5 text-cyan-400" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold truncate text-neutral-900 dark:text-white">{f.file.name}</p>
+                        {uploading && filePct !== undefined && (
+                          filePct >= 100 ? (
+                            <span className="text-emerald-400 font-semibold text-xs flex items-center gap-1 shrink-0">
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Sent
+                            </span>
+                          ) : (
+                            <span className="text-cyan-400 font-mono text-xs font-bold shrink-0">
+                              {filePct}%
+                            </span>
+                          )
+                        )}
+                      </div>
+                      <p className="text-xs font-mono text-neutral-500 dark:text-neutral-400">{formatBytes(f.file.size)}</p>
+                    </div>
+                    {!uploading && (
+                      <button onClick={(e) => { e.stopPropagation(); removeFile(f.id); }} className="opacity-0 group-hover:opacity-100 p-2 rounded-xl hover:bg-rose-500/10 text-neutral-400 hover:text-rose-400 transition-all cursor-pointer">
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Individual file progress bar during upload */}
+                  {uploading && filePct !== undefined && (
+                    <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden mt-1.5">
+                      <div
+                        className="h-full rounded-full transition-all duration-150"
+                        style={{
+                          width: `${filePct}%`,
+                          background: filePct >= 100 ? '#10b981' : 'linear-gradient(90deg, #00f0ff, #0077fe)',
+                        }}
+                      />
                     </div>
                   )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{f.file.name}</p>
-                    <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{formatBytes(f.file.size)}</p>
-                  </div>
-                  <button onClick={(e) => { e.stopPropagation(); removeFile(f.id); }} className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
-                    <X className="w-4 h-4 text-red-500" />
-                  </button>
                 </div>
               );
             })}
@@ -335,74 +571,195 @@ export default function UploadPage() {
       )}
 
       {/* Share Options */}
-      {files.length > 0 && (
-        <div className="glass-card p-6 mb-8 space-y-5 animate-fade-up">
-          <h3 className="font-semibold text-lg flex items-center gap-2">
-            <Lock className="w-5 h-5" style={{ color: 'var(--accent)' }} />
-            Share Settings
-          </h3>
-
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Title <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>(optional)</span></label>
-            <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Project Documents" className="input" maxLength={255} />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Description <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>(optional)</span></label>
-            <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Add a note for the recipient" className="input min-h-[80px] resize-y" maxLength={2000} />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <div>
-              <label className="block text-sm font-medium mb-1.5 flex items-center gap-1.5">
-                <Clock className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} /> Expiration
-              </label>
-              <select value={expiresIn} onChange={e => setExpiresIn(Number(e.target.value))} className="input">
-                {CONFIG.EXPIRATION_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
+      {files.length > 0 && !uploading && (
+        <div className="glass-card p-6 md:p-8 mb-8 space-y-6 animate-fade-up">
+          <div className="flex items-center gap-3 border-b border-black/[0.06] dark:border-white/[0.08] pb-4">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-cyan-500/10 border border-cyan-500/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]">
+              <Lock className="w-4 h-4 text-cyan-400" />
             </div>
-
             <div>
-              <label className="block text-sm font-medium mb-1.5 flex items-center gap-1.5">
-                <Download className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} /> Download Limit
-              </label>
-              <select value={maxDownloads} onChange={e => setMaxDownloads(Number(e.target.value))} className="input">
-                {CONFIG.DOWNLOAD_LIMIT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
+              <h3 className="font-bold text-base text-neutral-900 dark:text-white">Share Settings</h3>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">Configure expiration, download limits, and password</p>
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1.5 flex items-center gap-1.5">
-              <Lock className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} /> Password Protection <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>(optional)</span>
-            </label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Leave empty for no password" className="input" maxLength={128} />
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-1.5">
+                Title <span className="text-neutral-400 font-normal lowercase">(optional)</span>
+              </label>
+              <input type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Project Documents" className="input" maxLength={255} />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-1.5">
+                Description <span className="text-neutral-400 font-normal lowercase">(optional)</span>
+              </label>
+              <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Add a note for the recipient" className="input min-h-[80px] resize-y" maxLength={2000} />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-1.5 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-cyan-400" /> Expiration
+                </label>
+                <select value={expiresIn} onChange={e => setExpiresIn(Number(e.target.value))} className="input cursor-pointer">
+                  {CONFIG.EXPIRATION_OPTIONS.map(o => <option key={o.value} value={o.value} className="bg-neutral-950 text-white">{o.label}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-1.5 flex items-center gap-1.5">
+                  <Download className="w-3.5 h-3.5 text-cyan-400" /> Download Limit
+                </label>
+                <select value={maxDownloads} onChange={e => setMaxDownloads(Number(e.target.value))} className="input cursor-pointer">
+                  {CONFIG.DOWNLOAD_LIMIT_OPTIONS.map(o => <option key={o.value} value={o.value} className="bg-neutral-950 text-white">{o.label}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-1.5 flex items-center gap-1.5">
+                <Lock className="w-3.5 h-3.5 text-cyan-400" /> Password Protection <span className="text-neutral-400 font-normal lowercase">(optional)</span>
+              </label>
+              <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Leave empty for no password" className="input" maxLength={128} />
+            </div>
           </div>
         </div>
       )}
 
-      {/* Upload Progress */}
-      {uploading && (
-        <div className="mb-6 animate-fade-in">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium">Uploading...</span>
-            <span className="text-sm font-mono" style={{ color: 'var(--accent)' }}>{Math.round(progress)}%</span>
+      {/* Main Upload Progress Card */}
+      {uploading && uploadProgress && (
+        <div className="glass-card p-6 md:p-8 mb-6 border border-cyan-500/40 shadow-[0_20px_50px_rgba(0,0,0,0.9),0_0_30px_rgba(0,240,255,0.2)] animate-fade-up space-y-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-cyan-500/10 border border-cyan-500/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]">
+                {uploadProgress.phase === 'completed' ? (
+                  <CheckCircle2 className="w-6 h-6 text-emerald-400 animate-scale-in" />
+                ) : (
+                  <Activity className="w-6 h-6 animate-pulse text-cyan-400" />
+                )}
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-neutral-900 dark:text-white">
+                  {uploadProgress.phase === 'preparing' && 'Preparing upload...'}
+                  {uploadProgress.phase === 'uploading' && 'Transferring files...'}
+                  {uploadProgress.phase === 'finalizing' && 'Finalizing secure share...'}
+                  {uploadProgress.phase === 'completed' && 'Transfer Complete!'}
+                </h4>
+                <p className="text-xs font-mono text-neutral-500 dark:text-neutral-400">
+                  {formatBytes(uploadProgress.loaded)} of {formatBytes(uploadProgress.total)} sent
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-2xl font-black font-mono text-cyan-400 drop-shadow-[0_0_12px_rgba(0,240,255,0.5)]">
+                {uploadProgress.percent}%
+              </span>
+              <button
+                onClick={cancelUpload}
+                className="p-2 rounded-xl hover:bg-rose-500/10 text-neutral-400 hover:text-rose-400 transition-colors cursor-pointer"
+                title="Cancel upload"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-          <div className="progress-track">
-            <div className="progress-fill" style={{ width: `${progress}%` }} />
+
+          {/* Progress Bar with glowing gradient */}
+          <div className="relative w-full h-3 rounded-full overflow-hidden bg-black/60 dark:bg-black/90 border border-white/10 shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)]">
+            <div
+              className="h-full rounded-full transition-all duration-150 relative overflow-hidden"
+              style={{
+                width: `${uploadProgress.percent}%`,
+                background: 'linear-gradient(90deg, #00f59b 0%, #00f0ff 60%, #0077fe 100%)',
+                boxShadow: '0 0 16px rgba(0, 240, 255, 0.6)',
+              }}
+            >
+              <div className="absolute inset-0 bg-white/20 animate-pulse" />
+            </div>
+          </div>
+
+          {/* Live Net Speed & Meta Info */}
+          <div className="flex items-center justify-between text-xs pt-2 border-t border-white/[0.08]">
+            <div className="flex items-center gap-2 font-medium text-emerald-400">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <span className="font-mono font-bold">{uploadProgress.speed}</span>
+              <span className="text-neutral-500 font-normal">• Net Upload Speed</span>
+            </div>
+
+            {uploadProgress.eta && (
+              <div className="flex items-center gap-1.5 text-amber-400 font-medium">
+                <Clock className="w-3.5 h-3.5" />
+                <span>{uploadProgress.eta}</span>
+              </div>
+            )}
           </div>
         </div>
       )}
 
       {/* Upload Button */}
-      {files.length > 0 && (
-        <button onClick={handleUpload} disabled={uploading} className="btn-primary w-full py-4 text-base">
-          {uploading ? (
-            <><Loader2 className="w-5 h-5 animate-spin" /> Uploading...</>
-          ) : (
-            <><Upload className="w-5 h-5" /> Create Share ({files.length} file{files.length > 1 ? 's' : ''} • {formatBytes(totalSize)})</>
-          )}
+      {files.length > 0 && !uploading && (
+        <button onClick={handleUpload} className="btn-primary w-full py-4 text-base font-bold shadow-skeuo-btn tracking-wide">
+          <Upload className="w-5 h-5 drop-shadow" />
+          Create Share ({files.length} file{files.length > 1 ? 's' : ''} • {formatBytes(totalSize)})
         </button>
+      )}
+
+      {/* Floating Live Upload Indicator Widget */}
+      {uploading && uploadProgress && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-md animate-fade-up">
+          <div className="backdrop-blur-xl bg-neutral-950/90 text-white p-4 rounded-2xl border border-white/15 shadow-2xl space-y-2.5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+                <p className="text-xs font-medium truncate max-w-[200px] text-neutral-200">
+                  Sending {files.length} file{files.length > 1 ? 's' : ''}...
+                </p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="text-xs font-mono font-bold text-emerald-400">
+                  {uploadProgress.percent}%
+                </span>
+                <button
+                  onClick={cancelUpload}
+                  className="text-neutral-400 hover:text-white transition-colors p-1"
+                  title="Cancel upload"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Progress track */}
+            <div className="w-full h-1.5 rounded-full overflow-hidden bg-white/10">
+              <div
+                className="h-full rounded-full transition-all duration-150"
+                style={{
+                  width: `${uploadProgress.percent}%`,
+                  background: 'linear-gradient(90deg, #10b981, #06b6d4)',
+                }}
+              />
+            </div>
+
+            <div className="flex items-center justify-between text-[11px] text-neutral-400">
+              <span className="flex items-center gap-1 text-emerald-400 font-mono font-medium">
+                <Activity className="w-3 h-3" />
+                {uploadProgress.speed}
+              </span>
+              <span>
+                {formatBytes(uploadProgress.loaded)} / {formatBytes(uploadProgress.total)}
+              </span>
+              {uploadProgress.eta && <span className="text-amber-400">{uploadProgress.eta}</span>}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

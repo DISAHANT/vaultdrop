@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { authOptions, getSessionUser } from '@/lib/auth';
 import { createShare } from '@/lib/services/share-service';
 import { createShareSchema, validateFileUpload, validateTotalUpload } from '@/lib/validation';
 import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
@@ -74,8 +74,8 @@ export async function POST(request: Request) {
     }
 
     // Get session for optional owner assignment
-    const session = await getServerSession(authOptions);
-    const ownerId = (session?.user as { id?: string })?.id || undefined;
+    const sessionUser = await getSessionUser();
+    const ownerId = sessionUser?.id || undefined;
 
     const share = await createShare({
       ...optionsParsed.data,
@@ -93,8 +93,8 @@ export async function POST(request: Request) {
       hasPassword: share.hasPassword,
       url: `${CONFIG.APP_URL}/receive/${share.shareCode}`,
     }, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Share creation error:', error);
-    return NextResponse.json({ error: 'Failed to create share.' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'Failed to create share.' }, { status: 500 });
   }
 }

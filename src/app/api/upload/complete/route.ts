@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { authOptions, getSessionUser } from '@/lib/auth';
 import prisma from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import { getExpirationDate, CONFIG } from '@/lib/config';
@@ -91,8 +91,8 @@ export async function POST(request: Request) {
     const totalSize = files.reduce((sum, f) => sum + f.fileSize, 0);
 
     // Get session for optional owner assignment
-    const session = await getServerSession(authOptions);
-    const ownerId = (session?.user as { id?: string })?.id || null;
+    const sessionUser = await getSessionUser();
+    const ownerId = sessionUser?.id || null;
 
     // Database transaction to create Share and File records
     const share = await prisma.$transaction(async (tx) => {

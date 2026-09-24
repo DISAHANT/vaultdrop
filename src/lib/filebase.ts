@@ -4,10 +4,42 @@ import {
   GetObjectCommand,
   DeleteObjectCommand,
   DeleteObjectsCommand,
+  PutBucketCorsCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 let s3ClientInstance: S3Client | null = null;
+let corsEnsured = false;
+
+/**
+ * Ensures Filebase S3 bucket has CORS enabled for web browser uploads.
+ */
+export async function ensureBucketCors(): Promise<void> {
+  if (corsEnsured) return;
+  try {
+    const s3 = getFilebaseClient();
+    const bucket = getFilebaseBucket();
+    await s3.send(
+      new PutBucketCorsCommand({
+        Bucket: bucket,
+        CORSConfiguration: {
+          CORSRules: [
+            {
+              AllowedHeaders: ['*'],
+              AllowedMethods: ['GET', 'PUT', 'POST', 'DELETE', 'HEAD'],
+              AllowedOrigins: ['*'],
+              ExposeHeaders: ['ETag', 'Content-Length'],
+              MaxAgeSeconds: 3000,
+            },
+          ],
+        },
+      })
+    );
+    corsEnsured = true;
+  } catch (err) {
+    console.warn('Could not set bucket CORS:', err);
+  }
+}
 
 /**
  * Returns a configured S3 client for Filebase object storage.
@@ -18,8 +50,8 @@ export function getFilebaseClient(): S3Client {
     const secret = process.env.FILEBASE_SECRET || '';
 
     s3ClientInstance = new S3Client({
-      endpoint: 'https://s3.filebase.com',
-      region: 'us-east-1',
+      endpoint: 'https://s3.filebase.io',
+      region: 'auto',
       credentials: {
         accessKeyId: key,
         secretAccessKey: secret,
@@ -46,6 +78,7 @@ export async function createPresignedUploadUrl(options: {
   mimeType: string;
   expiresInSeconds?: number;
 }): Promise<string> {
+  await ensureBucketCors().catch(() => {});
   const s3 = getFilebaseClient();
   const bucket = getFilebaseBucket();
   const command = new PutObjectCommand({

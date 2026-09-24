@@ -1,110 +1,213 @@
 import Link from 'next/link';
-import { Upload, Download, Shield, Clock, Lock, QrCode, ArrowRight, Zap, Globe, Eye, Radio } from 'lucide-react';
+import {
+  FolderCode,
+  Laptop,
+  Clipboard,
+  Radio,
+  Upload,
+  Download,
+  Shield,
+  Clock,
+  Lock,
+  QrCode,
+  ArrowRight,
+  Zap,
+  Layers,
+  Cpu,
+  CheckCircle2,
+  Send,
+  Eye,
+  Terminal,
+} from 'lucide-react';
 
 export default function HomePage() {
   return (
-    <div className="relative overflow-hidden">
+    <div className="relative overflow-hidden min-h-screen">
+      {/* Background Subtle Ambient Glows */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-12 left-1/3 w-[500px] h-[500px] rounded-full opacity-20 dark:opacity-25 blur-3xl bg-cyan-500" />
+        <div className="absolute top-48 right-1/4 w-[450px] h-[450px] rounded-full opacity-15 dark:opacity-20 blur-3xl bg-indigo-500" />
+      </div>
+
       {/* Hero Section */}
-      <section className="relative py-20 md:py-32 px-4">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-20 left-1/4 w-72 h-72 rounded-full opacity-20 blur-3xl" style={{ background: 'var(--accent)' }} />
-          <div className="absolute bottom-20 right-1/4 w-96 h-96 rounded-full opacity-10 blur-3xl" style={{ background: '#8b5cf6' }} />
+      <section className="relative pt-24 pb-20 md:pt-36 md:pb-28 px-4 sm:px-6 max-w-7xl mx-auto z-10 text-center">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20 mb-8 shadow-sm">
+          <Shield className="w-3.5 h-3.5" />
+          <span>Cross-Device Bridge · Files, Clipboard & CodeDrop</span>
         </div>
 
-        <div className="max-w-4xl mx-auto text-center relative z-10">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium mb-8 animate-fade-in" style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}>
-            <Zap className="w-4 h-4" />
-            Secure • Fast • Simple
-          </div>
+        <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight text-neutral-900 dark:text-white max-w-4xl mx-auto mb-6">
+          Your personal bridge <br />
+          <span className="bg-gradient-to-r from-cyan-500 via-teal-500 to-indigo-500 bg-clip-text text-transparent">
+            between your devices.
+          </span>
+        </h1>
 
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold tracking-tight mb-6 animate-fade-up">
-            Share files & clipboard<br />
-            <span style={{ color: 'var(--accent)' }}>instantly across devices</span>
-          </h1>
+        <p className="text-base sm:text-xl text-neutral-600 dark:text-neutral-400 max-w-2xl mx-auto mb-10 leading-relaxed font-normal">
+          Move files, clipboard content and project workspaces instantly across your connected devices.
+          Zero dependency installations, intelligent folder exclusions, and verified device identity.
+        </p>
 
-          <p className="text-lg md:text-xl max-w-2xl mx-auto mb-10 animate-fade-up" style={{ color: 'var(--text-secondary)', animationDelay: '0.1s' }}>
-            Store files directly on Filebase object storage, or pair devices with Live Sync for real-time clipboard synchronization.
-          </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-up" style={{ animationDelay: '0.2s' }}>
-            <Link href="/upload" className="btn-primary text-base px-8 py-4 w-full sm:w-auto">
-              <Upload className="w-5 h-5" />
-              Upload Files
-            </Link>
-            <Link href="/receive" className="btn-secondary text-base px-8 py-4 w-full sm:w-auto">
-              <Download className="w-5 h-5" />
-              Receive Files
-            </Link>
-            <Link href="/sync" className="btn-secondary text-base px-8 py-4 w-full sm:w-auto border-emerald-500/30 text-emerald-400 hover:border-emerald-500">
-              <Radio className="w-5 h-5 animate-pulse text-emerald-400" />
-              Live Sync Clipboard
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* How It Works */}
-      <section className="py-20 px-4" style={{ background: 'var(--bg-secondary)' }}>
-        <div className="max-w-5xl mx-auto">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">How It Works</h2>
-          <p className="text-center mb-16" style={{ color: 'var(--text-secondary)' }}>Four simple steps to share any file</p>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            {[
-              { step: '01', icon: Upload, title: 'Upload', desc: 'Drag and drop your files or browse to select' },
-              { step: '02', icon: Shield, title: 'Secure', desc: 'Configure expiration, download limits, and password' },
-              { step: '03', icon: QrCode, title: 'Share', desc: 'Get a short code, link, or QR code to share' },
-              { step: '04', icon: Download, title: 'Download', desc: 'Recipients enter the code and download instantly' },
-            ].map(({ step, icon: Icon, title, desc }) => (
-              <div key={step} className="glass-card p-6 text-center group">
-                <div className="text-xs font-bold mb-3" style={{ color: 'var(--accent)' }}>{step}</div>
-                <div className="w-12 h-12 rounded-xl mx-auto mb-4 flex items-center justify-center transition-transform group-hover:scale-110" style={{ background: 'var(--accent-light)' }}>
-                  <Icon className="w-6 h-6" style={{ color: 'var(--accent)' }} />
-                </div>
-                <h3 className="font-semibold mb-2">{title}</h3>
-                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Features Grid */}
-      <section className="py-20 px-4">
-        <div className="max-w-5xl mx-auto">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">Premium Features</h2>
-          <p className="text-center mb-16" style={{ color: 'var(--text-secondary)' }}>Everything you need for secure file sharing</p>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              { icon: Clock, title: 'Expiring Shares', desc: 'Set auto-expiration from 1 hour to 30 days. Files become inaccessible after expiry.' },
-              { icon: Download, title: 'Download Limits', desc: 'Control how many times your files can be downloaded. From 1 to unlimited.' },
-              { icon: Lock, title: 'Password Protection', desc: 'Add an optional password to your shares. Securely hashed, never stored in plaintext.' },
-              { icon: QrCode, title: 'QR Code Sharing', desc: 'Generate QR codes for instant mobile access. Scan and download from any device.' },
-              { icon: Globe, title: 'No Account Needed', desc: 'Share files instantly as a guest. Create an account for dashboard and analytics.' },
-              { icon: Eye, title: 'Download Analytics', desc: 'Track downloads, view history, and monitor your shared files from the dashboard.' },
-            ].map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="file-card flex-col items-start gap-3 p-6 group">
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center transition-transform group-hover:scale-110" style={{ background: 'var(--accent-light)' }}>
-                  <Icon className="w-5 h-5" style={{ color: 'var(--accent)' }} />
-                </div>
-                <h3 className="font-semibold">{title}</h3>
-                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="py-20 px-4" style={{ background: 'var(--bg-secondary)' }}>
-        <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to share?</h2>
-          <p className="mb-8" style={{ color: 'var(--text-secondary)' }}>Start sharing files in seconds. No signup required.</p>
-          <Link href="/upload" className="btn-primary text-base px-8 py-4 inline-flex">
-            Get Started
-            <ArrowRight className="w-5 h-5" />
+        {/* Primary Action Buttons */}
+        <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 max-w-2xl mx-auto mb-16">
+          <Link
+            href="/codedrop"
+            className="btn-primary px-8 py-3.5 rounded-2xl text-sm font-bold tracking-wide shadow-skeuo-btn"
+          >
+            <FolderCode className="w-4 h-4 drop-shadow" />
+            <span>Open CodeDrop</span>
           </Link>
+
+          <Link
+            href="/devices"
+            className="btn-secondary px-6 py-3.5 rounded-2xl text-sm font-semibold"
+          >
+            <Laptop className="w-4 h-4 text-cyan-400" />
+            <span>My Devices</span>
+          </Link>
+
+          <Link
+            href="/clipboard"
+            className="btn-secondary px-6 py-3.5 rounded-2xl text-sm font-semibold"
+          >
+            <Clipboard className="w-4 h-4 text-indigo-400" />
+            <span>Clipboard Hub</span>
+          </Link>
+
+          <Link
+            href="/sync"
+            className="btn-secondary px-6 py-3.5 rounded-2xl text-sm font-semibold"
+          >
+            <Radio className="w-4 h-4 text-emerald-400 animate-pulse" />
+            <span>Live Sync</span>
+          </Link>
+        </div>
+
+        {/* 4 Feature Pillars Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-left">
+          {/* Card 1: CodeDrop */}
+          <div className="glass-card p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300">
+            <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)] flex items-center justify-center mb-4">
+              <FolderCode className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100 mb-1">
+              CodeDrop Workspaces
+            </h3>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed mb-4">
+              Select entire project directories. Automatically skips <code className="font-mono text-cyan-400">node_modules</code> and build caches while safeguarding <code className="font-mono text-amber-400">.env</code>.
+            </p>
+            <Link
+              href="/codedrop"
+              className="inline-flex items-center gap-1 text-xs font-bold text-cyan-400 hover:underline"
+            >
+              <span>Upload Workspace</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          {/* Card 2: Device Routing */}
+          <div className="glass-card p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300">
+            <div className="w-12 h-12 rounded-2xl bg-teal-500/10 text-teal-400 border border-teal-500/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)] flex items-center justify-center mb-4">
+              <Laptop className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100 mb-1">
+              Send to Device
+            </h3>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed mb-4">
+              Transfer items directly to target devices — whether your laptop, tablet, or phone — with live presence beacons and QR pairing.
+            </p>
+            <Link
+              href="/devices"
+              className="inline-flex items-center gap-1 text-xs font-bold text-teal-400 hover:underline"
+            >
+              <span>Manage Devices</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          {/* Card 3: Clipboard Sync */}
+          <div className="glass-card p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)] flex items-center justify-center mb-4">
+              <Clipboard className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100 mb-1">
+              Clipboard Hub
+            </h3>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed mb-4">
+              Cross-device clipboard bridge for snippets, URLs, and code. Respects browser permissions with honest permission states.
+            </p>
+            <Link
+              href="/clipboard"
+              className="inline-flex items-center gap-1 text-xs font-bold text-indigo-400 hover:underline"
+            >
+              <span>Open Clipboard</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          {/* Card 4: S3 Object Storage */}
+          <div className="glass-card p-6 rounded-3xl hover:-translate-y-1 transition-all duration-300">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.15)] flex items-center justify-center mb-4">
+              <Shield className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100 mb-1">
+              Encrypted File Vault
+            </h3>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400 leading-relaxed mb-4">
+              Direct-to-S3 presigned uploads, expiration windows, download limits, password encryption, and chunked download streaming.
+            </p>
+            <Link
+              href="/upload"
+              className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400 hover:underline"
+            >
+              <span>Upload Files</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Developer Architecture & Philosophy */}
+      <section className="py-20 px-4 sm:px-6 max-w-6xl mx-auto border-t border-neutral-200 dark:border-neutral-800/80">
+        <div className="text-center max-w-2xl mx-auto mb-14">
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-neutral-900 dark:text-neutral-100 mb-3">
+            Built for Developer Workflows
+          </h2>
+          <p className="text-sm text-neutral-500">
+            VaultDrop is a personal transfer platform, not a cloud IDE. Pure static inspection, encrypted object storage, zero dependency runs.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="p-6 rounded-3xl bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200 dark:border-neutral-800">
+            <div className="flex items-center gap-2 mb-3 text-cyan-600 dark:text-cyan-400 font-bold text-sm">
+              <Cpu className="w-4 h-4" />
+              <span>Static Health Reports</span>
+            </div>
+            <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+              Detects framework, language, package managers, and configuration heuristics purely from directory inspection without running untrusted scripts.
+            </p>
+          </div>
+
+          <div className="p-6 rounded-3xl bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200 dark:border-neutral-800">
+            <div className="flex items-center gap-2 mb-3 text-amber-500 font-bold text-sm">
+              <Lock className="w-4 h-4" />
+              <span>Sensitive-File Awareness</span>
+            </div>
+            <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+              Never silently discards or publicly exposes <code className="font-mono">.env</code> files. Flags credentials and gives you explicit consent toggles.
+            </p>
+          </div>
+
+          <div className="p-6 rounded-3xl bg-neutral-50 dark:bg-neutral-900/50 border border-neutral-200 dark:border-neutral-800">
+            <div className="flex items-center gap-2 mb-3 text-indigo-500 font-bold text-sm">
+              <Layers className="w-4 h-4" />
+              <span>Point-in-Time Snapshots</span>
+            </div>
+            <p className="text-xs text-neutral-600 dark:text-neutral-400 leading-relaxed">
+              Preserve point-in-time states of your active projects before major refactors, allowing one-click download as structured ZIP archives.
+            </p>
+          </div>
         </div>
       </section>
     </div>

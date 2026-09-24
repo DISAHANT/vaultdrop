@@ -88,7 +88,9 @@ export async function broadcastClipboardEvent(payload: SyncClipboardPayload): Pr
   let pusherSent = false;
 
   // If payload is large (like screenshot base64), store it in temporary cache
-  if (payload.text.length > 8000 || payload.type === 'image') {
+  // Always store large text or images for retrieval via clipUrl.
+  // Pusher has a hard 10KB payload limit; with JSON overhead, even ~1000 chars can fail.
+  if (payload.text.length > 800 || payload.type === 'image') {
     saveClipData(payload.id, payload.text);
     payload.clipUrl = `/api/sync/clip/${payload.id}`;
   }
@@ -98,7 +100,7 @@ export async function broadcastClipboardEvent(payload: SyncClipboardPayload): Pr
     try {
       // Pusher limit is 10KB, so send reference for large payloads
       const pusherData: SyncClipboardPayload =
-        payload.text.length > 8000
+        payload.text.length > 800
           ? {
               ...payload,
               text: payload.type === 'image' ? '' : payload.text.slice(0, 500) + '...',
@@ -134,4 +136,31 @@ export function subscribeToRoomEvents(
   };
 }
 
+export async function broadcastDeviceTransfer(transfer: any): Promise<void> {
+  const pusher = getPusherServer();
+  const channel = `device-${transfer.targetDeviceId}`;
+  if (pusher) {
+    try {
+      await pusher.trigger(channel, 'incoming-transfer', transfer);
+    } catch (err) {
+      console.warn('Pusher device transfer trigger warning:', err);
+    }
+  }
+  syncEventEmitter.emit(`device:${transfer.targetDeviceId}`, transfer);
+}
+
+export async function broadcastUserClipboard(userId: string, item: any): Promise<void> {
+  const pusher = getPusherServer();
+  const channel = `user-${userId}`;
+  if (pusher) {
+    try {
+      await pusher.trigger(channel, 'clipboard-update', item);
+    } catch (err) {
+      console.warn('Pusher user clipboard trigger warning:', err);
+    }
+  }
+  syncEventEmitter.emit(`user-clipboard:${userId}`, item);
+}
+
 export { syncEventEmitter };
+

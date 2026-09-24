@@ -73,6 +73,7 @@ export async function GET(
         'Content-Disposition': `attachment; filename="${zipName}"`,
         'Content-Length': zipBuffer.length.toString(),
         'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Access-Control-Expose-Headers': 'Content-Length, Content-Disposition',
       },
     });
   } catch (error) {

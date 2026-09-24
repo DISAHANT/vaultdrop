@@ -5,211 +5,531 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { BarChart3, Files, Download, HardDrive, Upload, Clock, Copy, ExternalLink, Trash2, XCircle, ChevronRight, Search, Filter, Loader2 } from 'lucide-react';
-import { formatBytes, formatDate, timeUntilExpiry } from '@/lib/config';
+import {
+  FolderCode,
+  Laptop,
+  Clipboard,
+  Radio,
+  Upload,
+  Download,
+  Send,
+  HardDrive,
+  Cpu,
+  Layers,
+  CheckCircle2,
+  Clock,
+  Copy,
+  ExternalLink,
+  Trash2,
+  Search,
+  Filter,
+  ArrowRight,
+  RefreshCw,
+  Plus,
+  Shield,
+  Smartphone,
+  Monitor,
+} from 'lucide-react';
+import { formatBytes, formatDate } from '@/lib/config';
+import SendToDeviceModal from '@/components/send-to-device-modal';
 
-interface Stats {
+interface DashboardStats {
   totalShares: number;
   activeShares: number;
   expiredShares: number;
   totalDownloads: number;
   totalFiles: number;
   totalStoredSize: string;
-}
-
-interface ShareItem {
-  id: string;
-  shareCode: string;
-  title: string | null;
-  status: string;
-  totalFiles: number;
-  totalSize: string;
-  downloadCount: number;
-  maxDownloads: number | null;
-  expiresAt: string | null;
-  hasPassword: boolean;
-  createdAt: string;
+  workspacesCount: number;
+  workspaceFilesCount: number;
+  workspaceBytes: number;
+  totalDevices: number;
+  onlineDevices: number;
+  clipboardCount: number;
 }
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [shares, setShares] = useState<ShareItem[]>([]);
+
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [shares, setShares] = useState<any[]>([]);
+  const [workspaces, setWorkspaces] = useState<any[]>([]);
+  const [devices, setDevices] = useState<any[]>([]);
+  const [clipboardItems, setClipboardItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [sortBy, setSortBy] = useState('newest');
+
+  // Send to Device Modal State
+  const [sendModalOpen, setSendModalOpen] = useState(false);
 
   useEffect(() => {
     if (status === 'unauthenticated') router.push('/login');
   }, [status, router]);
 
-  const fetchData = useCallback(async () => {
+  const fetchAllData = useCallback(async () => {
     setLoading(true);
     try {
-      const [statsRes, sharesRes] = await Promise.all([
+      const [statsRes, sharesRes, workspacesRes, devicesRes, clipboardRes] = await Promise.all([
         fetch('/api/user/stats'),
-        fetch(`/api/user/shares?search=${encodeURIComponent(search)}&status=${statusFilter}&sortBy=${sortBy}`),
+        fetch('/api/user/shares?limit=6'),
+        fetch('/api/workspaces'),
+        fetch('/api/devices'),
+        fetch('/api/clipboard'),
       ]);
+
       if (statsRes.ok) setStats(await statsRes.json());
       if (sharesRes.ok) {
         const data = await sharesRes.json();
         setShares(data.shares || []);
       }
+      if (workspacesRes.ok) {
+        const data = await workspacesRes.json();
+        setWorkspaces(data.workspaces || []);
+      }
+      if (devicesRes.ok) {
+        const data = await devicesRes.json();
+        setDevices(data.devices || []);
+      }
+      if (clipboardRes.ok) {
+        const data = await clipboardRes.json();
+        setClipboardItems(data.items || []);
+      }
     } catch {
-      toast.error('Failed to load dashboard data');
+      toast.error('Failed to load dashboard data.');
     } finally {
       setLoading(false);
     }
-  }, [search, statusFilter, sortBy]);
+  }, []);
 
   useEffect(() => {
     if (status === 'authenticated') {
-      fetchData();
+      fetchAllData();
     }
-  }, [status, fetchData]);
+  }, [status, fetchAllData]);
 
   const copyCode = (code: string) => {
     navigator.clipboard.writeText(code);
-    toast.success('Code copied!');
+    toast.success('Share code copied!');
   };
 
   const copyLink = (code: string) => {
     navigator.clipboard.writeText(`${window.location.origin}/receive/${code}`);
-    toast.success('Link copied!');
+    toast.success('Link copied to clipboard!');
   };
 
-  const handleDelete = async (code: string) => {
+  const handleDeleteShare = async (code: string) => {
     if (!confirm('Delete this share? This cannot be undone.')) return;
     try {
       await fetch(`/api/shares/${code}`, { method: 'DELETE' });
       toast.success('Share deleted');
-      fetchData();
+      fetchAllData();
     } catch {
-      toast.error('Failed to delete');
+      toast.error('Failed to delete share');
     }
   };
 
-  const handleRevoke = async (code: string) => {
-    if (!confirm('Revoke this share? Files will become inaccessible.')) return;
-    try {
-      await fetch(`/api/shares/${code}?action=revoke`, { method: 'DELETE' });
-      toast.success('Share revoked');
-      fetchData();
-    } catch {
-      toast.error('Failed to revoke');
-    }
-  };
-
-  if (status === 'loading' || status === 'unauthenticated') {
-    return <div className="max-w-5xl mx-auto px-4 py-20"><div className="skeleton w-full h-64" /></div>;
+  if (status === 'loading' || loading) {
+    return (
+      <div className="min-h-screen pt-32 flex flex-col items-center justify-center">
+        <RefreshCw className="w-8 h-8 text-cyan-500 animate-spin mb-4" />
+        <p className="text-sm text-neutral-500">Loading your developer workspace dashboard...</p>
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-10">
-      <div className="flex items-center justify-between mb-8">
+    <div className="min-h-screen pt-24 pb-20 px-4 sm:px-6 max-w-7xl mx-auto space-y-10">
+      {/* Top Welcome & Quick Actions */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-neutral-200 dark:border-neutral-800">
         <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>Welcome, {session?.user?.name || 'User'}</p>
+          <h1 className="text-3xl font-black text-neutral-900 dark:text-neutral-100">
+            Control Center
+          </h1>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+            Personal transfer bridge across your files, live clipboard, and CodeDrop projects.
+          </p>
         </div>
-        <Link href="/upload" className="btn-primary">
-          <Upload className="w-4 h-4" /> New Share
-        </Link>
-      </div>
 
-      {/* Stats */}
-      {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {[
-            { icon: Files, label: 'Total Shares', value: stats.totalShares, sub: `${stats.activeShares} active` },
-            { icon: BarChart3, label: 'Total Downloads', value: stats.totalDownloads, sub: 'all time' },
-            { icon: HardDrive, label: 'Files Stored', value: stats.totalFiles, sub: formatBytes(BigInt(stats.totalStoredSize)) },
-            { icon: Clock, label: 'Expired', value: stats.expiredShares, sub: 'shares' },
-          ].map(({ icon: Icon, label, value, sub }) => (
-            <div key={label} className="stat-card">
-              <div className="flex items-center gap-2 mb-2">
-                <Icon className="w-4 h-4" style={{ color: 'var(--accent)' }} />
-                <span className="text-xs font-medium" style={{ color: 'var(--text-tertiary)' }}>{label}</span>
-              </div>
-              <p className="text-2xl font-bold">{value}</p>
-              <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{sub}</p>
-            </div>
-          ))}
-        </div>
-      )}
+        {/* Quick Actions Row */}
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/codedrop"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/25 transition-all"
+          >
+            <FolderCode className="w-4 h-4" />
+            <span>Upload Workspace</span>
+          </Link>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search shares..." className="input pl-10 text-sm" />
-        </div>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="input w-auto text-sm">
-          <option value="">All Status</option>
-          <option value="ACTIVE">Active</option>
-          <option value="EXPIRED">Expired</option>
-          <option value="REVOKED">Revoked</option>
-        </select>
-        <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="input w-auto text-sm">
-          <option value="newest">Newest</option>
-          <option value="oldest">Oldest</option>
-          <option value="downloads">Most Downloads</option>
-        </select>
-      </div>
+          <Link
+            href="/upload"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 font-bold text-xs hover:bg-neutral-800 dark:hover:bg-neutral-100 shadow-sm transition-all"
+          >
+            <Upload className="w-4 h-4" />
+            <span>Upload File</span>
+          </Link>
 
-      {/* Shares List */}
-      {loading ? (
-        <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="skeleton w-full h-20" />)}</div>
-      ) : shares.length === 0 ? (
-        <div className="glass-card p-12 text-center">
-          <Files className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--text-tertiary)' }} />
-          <h3 className="text-lg font-semibold mb-2">No shares yet</h3>
-          <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>Create your first share to see it here</p>
-          <Link href="/upload" className="btn-primary">
-            <Upload className="w-4 h-4" /> Create Share
+          <button
+            onClick={() => setSendModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 font-semibold text-xs hover:bg-neutral-100 dark:hover:bg-neutral-700 shadow-sm transition-all"
+          >
+            <Send className="w-4 h-4 text-teal-500" />
+            <span>Send to Device</span>
+          </button>
+
+          <Link
+            href="/sync"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold text-xs hover:bg-emerald-500/20 shadow-sm transition-all"
+          >
+            <Radio className="w-4 h-4 animate-pulse" />
+            <span>Live Sync</span>
+          </Link>
+
+          <Link
+            href="/clipboard"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-semibold text-xs hover:bg-indigo-500/20 shadow-sm transition-all"
+          >
+            <Clipboard className="w-4 h-4" />
+            <span>Clipboard</span>
           </Link>
         </div>
-      ) : (
-        <div className="space-y-3">
-          {shares.map(share => (
-            <div key={share.id} className="file-card group">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="font-mono text-sm font-bold" style={{ color: 'var(--accent)' }}>{share.shareCode}</span>
-                  <span className={`badge ${share.status === 'ACTIVE' ? 'badge-active' : share.status === 'EXPIRED' ? 'badge-expired' : 'badge-revoked'}`}>
-                    {share.status}
-                  </span>
-                  {share.hasPassword && <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>🔒</span>}
-                </div>
-                <p className="text-sm font-medium truncate">{share.title || 'Untitled'}</p>
-                <div className="flex items-center gap-3 text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                  <span>{share.totalFiles} files</span>
-                  <span>{formatBytes(BigInt(share.totalSize))}</span>
-                  <span>{share.downloadCount} downloads</span>
-                  <span>{share.expiresAt ? timeUntilExpiry(new Date(share.expiresAt)) : 'No expiry'}</span>
-                </div>
+      </div>
+
+      {/* 4 Primary Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Storage Used */}
+        <div className="p-6 rounded-3xl bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 shadow-lg">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-neutral-500">Storage In Use</span>
+            <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+              <HardDrive className="w-4 h-4" />
+            </div>
+          </div>
+          <p className="text-2xl font-black text-neutral-900 dark:text-neutral-100">
+            {formatBytes(parseInt(stats?.totalStoredSize || '0'))}
+          </p>
+          <span className="text-[11px] text-neutral-400">Encrypted Filebase S3 Bucket</span>
+        </div>
+
+        {/* CodeDrop Workspaces */}
+        <div className="p-6 rounded-3xl bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 shadow-lg">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-neutral-500">Workspaces</span>
+            <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+              <FolderCode className="w-4 h-4" />
+            </div>
+          </div>
+          <p className="text-2xl font-black text-neutral-900 dark:text-neutral-100">
+            {stats?.workspacesCount || 0}
+          </p>
+          <span className="text-[11px] text-neutral-400">
+            {stats?.workspaceFilesCount || 0} preserved files
+          </span>
+        </div>
+
+        {/* Connected Devices */}
+        <div className="p-6 rounded-3xl bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 shadow-lg">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-neutral-500">Linked Devices</span>
+            <div className="p-2 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400">
+              <Laptop className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <p className="text-2xl font-black text-neutral-900 dark:text-neutral-100">
+              {stats?.totalDevices || 0}
+            </p>
+            <span className="text-xs font-semibold text-emerald-500">
+              ● {stats?.onlineDevices || 0} online
+            </span>
+          </div>
+          <span className="text-[11px] text-neutral-400">Persistent device identities</span>
+        </div>
+
+        {/* Clipboard Snippets */}
+        <div className="p-6 rounded-3xl bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 shadow-lg">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-semibold text-neutral-500">Clipboard History</span>
+            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <Clipboard className="w-4 h-4" />
+            </div>
+          </div>
+          <p className="text-2xl font-black text-neutral-900 dark:text-neutral-100">
+            {stats?.clipboardCount || 0}
+          </p>
+          <span className="text-[11px] text-neutral-400">Synced text, code & URLs</span>
+        </div>
+      </div>
+
+      {/* Grid: Recent Workspaces & Connected Devices */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Recent Workspaces Card */}
+        <div className="p-6 sm:p-8 rounded-3xl bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 shadow-xl space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+                <FolderCode className="w-5 h-5" />
               </div>
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => copyCode(share.shareCode)} className="p-2 rounded-lg hover:bg-[var(--bg-secondary)]" title="Copy code">
-                  <Copy className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
-                </button>
-                <button onClick={() => copyLink(share.shareCode)} className="p-2 rounded-lg hover:bg-[var(--bg-secondary)]" title="Copy link">
-                  <ExternalLink className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
-                </button>
-                {share.status === 'ACTIVE' && (
-                  <button onClick={() => handleRevoke(share.shareCode)} className="p-2 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20" title="Revoke">
-                    <XCircle className="w-4 h-4 text-amber-500" />
-                  </button>
-                )}
-                <button onClick={() => handleDelete(share.shareCode)} className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20" title="Delete">
-                  <Trash2 className="w-4 h-4 text-red-500" />
-                </button>
+              <div>
+                <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100">
+                  Recent Workspaces
+                </h3>
+                <p className="text-xs text-neutral-500">Point-in-time developer project folders</p>
               </div>
             </div>
-          ))}
+            <Link
+              href="/workspaces"
+              className="text-xs font-bold text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1"
+            >
+              <span>View All</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          {workspaces.length === 0 ? (
+            <div className="py-8 text-center border-2 border-dashed border-neutral-200 dark:border-neutral-800 rounded-2xl">
+              <p className="text-xs text-neutral-500 mb-3">No developer workspaces uploaded yet.</p>
+              <Link
+                href="/codedrop"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-cyan-600 text-white font-bold text-xs hover:bg-cyan-500"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Upload First Workspace</span>
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {workspaces.slice(0, 4).map((ws) => (
+                <div
+                  key={ws.id}
+                  className="flex items-center justify-between p-3.5 rounded-2xl bg-neutral-50/70 dark:bg-neutral-800/40 border border-neutral-200/50 dark:border-neutral-800/80 text-xs"
+                >
+                  <div className="flex items-center gap-3 truncate">
+                    <FolderCode className="w-4 h-4 text-cyan-500 flex-shrink-0" />
+                    <div className="truncate">
+                      <Link
+                        href={`/workspaces/${ws.id}`}
+                        className="font-bold text-neutral-900 dark:text-neutral-100 hover:underline truncate block"
+                      >
+                        {ws.name}
+                      </Link>
+                      <span className="text-[11px] text-neutral-400">
+                        {ws.fileCount} files · {formatBytes(ws.totalBytes)} · {ws.healthReport?.framework || 'Project'}
+                      </span>
+                    </div>
+                  </div>
+                  <Link
+                    href={`/workspaces/${ws.id}`}
+                    className="p-1.5 rounded-xl hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-500"
+                  >
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Connected Devices Card */}
+        <div className="p-6 sm:p-8 rounded-3xl bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 shadow-xl space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400">
+                <Laptop className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100">
+                  Registered Devices
+                </h3>
+                <p className="text-xs text-neutral-500">Live presence and direct transfer targets</p>
+              </div>
+            </div>
+            <Link
+              href="/devices"
+              className="text-xs font-bold text-teal-600 dark:text-teal-400 hover:underline flex items-center gap-1"
+            >
+              <span>Manage</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          {devices.length === 0 ? (
+            <div className="py-8 text-center border-2 border-dashed border-neutral-200 dark:border-neutral-800 rounded-2xl">
+              <p className="text-xs text-neutral-500 mb-3">No linked devices registered.</p>
+              <Link
+                href="/devices"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-teal-600 text-white font-bold text-xs hover:bg-teal-500"
+              >
+                <span>Register This Device</span>
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {devices.slice(0, 4).map((d) => (
+                <div
+                  key={d.id}
+                  className="flex items-center justify-between p-3.5 rounded-2xl bg-neutral-50/70 dark:bg-neutral-800/40 border border-neutral-200/50 dark:border-neutral-800/80 text-xs"
+                >
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full ${
+                        d.status === 'online'
+                          ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50 animate-pulse'
+                          : d.status === 'idle'
+                          ? 'bg-amber-500'
+                          : 'bg-neutral-400'
+                      }`}
+                    />
+                    <div>
+                      <span className="font-bold text-neutral-900 dark:text-neutral-100 block">
+                        {d.deviceName}
+                      </span>
+                      <span className="text-[11px] text-neutral-400">
+                        {d.deviceType} · {d.browser} · {d.operatingSystem}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300">
+                    {d.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Grid: Shared Files / S3 Objects & Clipboard Snippets */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Recent Shares */}
+        <div className="p-6 sm:p-8 rounded-3xl bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 shadow-xl space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+                <Shield className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100">
+                  Shared File Vaults
+                </h3>
+                <p className="text-xs text-neutral-500">Expiring files with custom codes</p>
+              </div>
+            </div>
+            <Link
+              href="/upload"
+              className="text-xs font-bold text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1"
+            >
+              <span>+ Share File</span>
+            </Link>
+          </div>
+
+          {shares.length === 0 ? (
+            <p className="text-xs text-neutral-500 py-6 text-center">No active file shares.</p>
+          ) : (
+            <div className="space-y-3">
+              {shares.slice(0, 4).map((s) => (
+                <div
+                  key={s.id}
+                  className="flex items-center justify-between p-3.5 rounded-2xl bg-neutral-50/70 dark:bg-neutral-800/40 border border-neutral-200/50 dark:border-neutral-800/80 text-xs"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-cyan-600 dark:text-cyan-400">
+                        {s.shareCode}
+                      </span>
+                      <span className="text-neutral-800 dark:text-neutral-200 font-semibold truncate max-w-[140px]">
+                        {s.title || 'Untitled Share'}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-neutral-400">
+                      {s.totalFiles} files · {s.totalSize} · {s.downloadCount} downloads
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => copyCode(s.shareCode)}
+                      title="Copy Code"
+                      className="p-1.5 rounded-xl hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-500"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => copyLink(s.shareCode)}
+                      title="Copy Link"
+                      className="p-1.5 rounded-xl hover:bg-neutral-200 dark:hover:bg-neutral-700 text-neutral-500"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteShare(s.shareCode)}
+                      title="Delete"
+                      className="p-1.5 rounded-xl hover:bg-rose-500/10 text-neutral-400 hover:text-rose-500"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Recent Clipboard Items */}
+        <div className="p-6 sm:p-8 rounded-3xl bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 shadow-xl space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                <Clipboard className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100">
+                  Recent Clipboard Snippets
+                </h3>
+                <p className="text-xs text-neutral-500">Live synced across devices</p>
+              </div>
+            </div>
+            <Link
+              href="/clipboard"
+              className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+            >
+              <span>View Hub</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
+          {clipboardItems.length === 0 ? (
+            <p className="text-xs text-neutral-500 py-6 text-center">No clipboard items synced yet.</p>
+          ) : (
+            <div className="space-y-3">
+              {clipboardItems.slice(0, 4).map((item) => (
+                <div
+                  key={item.id}
+                  className="p-3.5 rounded-2xl bg-neutral-50/70 dark:bg-neutral-800/40 border border-neutral-200/50 dark:border-neutral-800/80 text-xs space-y-1.5"
+                >
+                  <div className="flex items-center justify-between text-[11px] text-neutral-400">
+                    <span className="capitalize font-semibold text-neutral-600 dark:text-neutral-300">
+                      {item.type}
+                    </span>
+                    <span>{new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  </div>
+                  <p className="text-neutral-800 dark:text-neutral-200 font-mono truncate">
+                    {item.content}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Global Send to Device Modal */}
+      <SendToDeviceModal
+        isOpen={sendModalOpen}
+        onClose={() => setSendModalOpen(false)}
+        itemTitle="Quick Device Transfer"
+        itemType="file"
+        itemPayload={{ text: 'Quick transfer ping from dashboard' }}
+      />
     </div>
   );
 }

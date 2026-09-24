@@ -47,23 +47,75 @@ export async function GET(
       return NextResponse.json({ error: result.reason }, { status: 410 });
     }
 
-    const { createPresignedDownloadUrl } = await import('@/lib/filebase');
+    const { createPresignedDownloadUrl, getFilebaseObjectStream } = await import('@/lib/filebase');
+    const { Readable } = await import('stream');
     const urlObj = new URL(request.url);
-    const wantsJson = urlObj.searchParams.get('json') === 'true' || request.headers.get('accept')?.includes('application/json');
+    const wantsDirectJson = urlObj.searchParams.get('json') === 'true';
 
-    // Deliver via Filebase pre-signed GET URL if fileKey is available
-    if (fileInShare.fileKey) {
+    // If caller explicitly requested direct JSON pre-signed URL
+    if (wantsDirectJson && fileInShare.fileKey) {
       const downloadUrl = await createPresignedDownloadUrl({
         fileKey: fileInShare.fileKey,
         originalFilename: fileInShare.originalFilename,
-        expiresInSeconds: 60, // 60s temporary URL as per requirement
+        expiresInSeconds: 60,
       });
+      return NextResponse.json({ downloadUrl, filename: fileInShare.originalFilename });
+    }
 
-      if (wantsJson) {
-        return NextResponse.json({ downloadUrl, filename: fileInShare.originalFilename });
+    const sanitizedFilename = fileInShare.originalFilename.replace(/[^\w\s.\-()]/g, '_');
+    const encodedFilename = encodeURIComponent(fileInShare.originalFilename);
+
+    // Deliver via direct stream from Filebase
+    if (fileInShare.fileKey) {
+      try {
+        const s3Response = await getFilebaseObjectStream(fileInShare.fileKey);
+        if (s3Response.Body) {
+          let webStream: ReadableStream;
+          if (typeof (s3Response.Body as any).transformToWebStream === 'function') {
+            webStream = (s3Response.Body as any).transformToWebStream();
+          } else {
+            webStream = Readable.toWeb(s3Response.Body as any) as ReadableStream;
+          }
+
+          const contentLength = s3Response.ContentLength?.toString() || fileInShare.fileSize.toString();
+
+          return new Response(webStream, {
+            headers: {
+              'Content-Type': fileInShare.mimeType || 'application/octet-stream',
+              'Content-Disposition': `attachment; filename="${sanitizedFilename}"; filename*=UTF-8''${encodedFilename}`,
+              'Content-Length': contentLength,
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'X-Content-Type-Options': 'nosniff',
+              'Access-Control-Expose-Headers': 'Content-Length, Content-Disposition',
+            },
+          });
+        }
+      } catch (streamError) {
+        console.warn('Direct Filebase stream failed, checking local object storage:', streamError);
+        try {
+          const { getObjectBufferSafe } = await import('@/lib/storage/object-storage');
+          const buf = await getObjectBufferSafe(fileInShare.fileKey);
+          if (buf) {
+            return new NextResponse(new Uint8Array(buf), {
+              headers: {
+                'Content-Type': fileInShare.mimeType || 'application/octet-stream',
+                'Content-Disposition': `attachment; filename="${sanitizedFilename}"; filename*=UTF-8''${encodedFilename}`,
+                'Content-Length': buf.length.toString(),
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'X-Content-Type-Options': 'nosniff',
+                'Access-Control-Expose-Headers': 'Content-Length, Content-Disposition',
+              },
+            });
+          }
+        } catch {}
+
+        const downloadUrl = await createPresignedDownloadUrl({
+          fileKey: fileInShare.fileKey,
+          originalFilename: fileInShare.originalFilename,
+          expiresInSeconds: 60,
+        });
+        return NextResponse.redirect(downloadUrl, 302);
       }
-
-      return NextResponse.redirect(downloadUrl, 302);
     }
 
     // Fallback for legacy DB binary blobs
@@ -73,15 +125,14 @@ export async function GET(
       return NextResponse.json({ error: 'File data not found.' }, { status: 404 });
     }
 
-    const sanitizedFilename = file.originalFilename.replace(/[^\w\s.\-()]/g, '_');
-
     return new NextResponse(new Uint8Array(file.fileData), {
       headers: {
-        'Content-Type': file.mimeType,
-        'Content-Disposition': `attachment; filename="${sanitizedFilename}"`,
+        'Content-Type': file.mimeType || 'application/octet-stream',
+        'Content-Disposition': `attachment; filename="${sanitizedFilename}"; filename*=UTF-8''${encodedFilename}`,
         'Content-Length': file.fileSize.toString(),
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'X-Content-Type-Options': 'nosniff',
+        'Access-Control-Expose-Headers': 'Content-Length, Content-Disposition',
       },
     });
   } catch (error) {

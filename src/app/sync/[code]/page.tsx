@@ -196,7 +196,8 @@ export default function ActiveSessionPage() {
       const isSelf = item.senderId === deviceId;
 
       let fullText = item.text;
-      if (item.clipUrl && (!fullText || fullText.length < 50)) {
+      // When clipUrl is present, the inline text is a truncated preview — always fetch the full content
+      if (item.clipUrl) {
         try {
           const res = await fetch(item.clipUrl);
           if (res.ok) {
@@ -204,7 +205,7 @@ export default function ActiveSessionPage() {
             if (json.data) fullText = json.data;
           }
         } catch {
-          // ignore
+          // Use whatever text we have as fallback
         }
       }
 

@@ -57,11 +57,23 @@ export async function createShare(options: CreateShareOptions): Promise<ShareWit
   const expiresAt = getExpirationDate(options.expiresInSeconds || 86400);
   const totalSize = options.files.reduce((sum, f) => sum + f.fileSize, 0);
 
+  // Validate ownerId exists in database to prevent foreign key constraint violations
+  let validOwnerId: string | null = null;
+  if (options.ownerId) {
+    try {
+      const u = await prisma.user.findUnique({
+        where: { id: options.ownerId },
+        select: { id: true },
+      });
+      if (u) validOwnerId = u.id;
+    } catch {}
+  }
+
   // Create the share record first
   const share = await prisma.share.create({
     data: {
       shareCode,
-      ownerId: options.ownerId || null,
+      ownerId: validOwnerId,
       title: options.title || null,
       description: options.description || null,
       passwordHash,

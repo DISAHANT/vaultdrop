@@ -18,15 +18,155 @@ model User {
   id           String   @id @default(cuid())
   name         String?
   email        String   @unique
-  passwordHash String   @map("password_hash")
+  passwordHash String?  @map("password_hash")
   avatarUrl    String?  @map("avatar_url")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  shares       Share[]
-  syncSessions SyncSession[]
+  shares         Share[]
+  syncSessions   SyncSession[]
+  devices        UserDevice[]
+  workspaces     Workspace[]
+  clipboardItems ClipboardItem[]
+  sentTransfers  DeviceTransfer[] @relation("SentTransfers")
 
   @@map("users")
+}
+
+model UserDevice {
+  id          String    @id @default(cuid())
+  userId      String    @map("user_id")
+  deviceId    String    @map("device_id") @db.VarChar(100)
+  deviceName  String    @map("device_name") @db.VarChar(100)
+  deviceType  String    @default("laptop") @map("device_type") @db.VarChar(50) // 'laptop' | 'desktop' | 'mobile' | 'tablet'
+  browser     String?   @db.VarChar(50)
+  os          String?   @db.VarChar(50)
+  isOnline    Boolean   @default(true) @map("is_online")
+  lastSeenAt  DateTime  @default(now()) @map("last_seen_at")
+  lastSyncAt  DateTime? @map("last_sync_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, deviceId])
+  @@index([deviceId])
+  @@index([userId])
+  @@index([lastSeenAt])
+  @@map("user_devices")
+}
+
+model DeviceTransfer {
+  id               String   @id @default(cuid())
+  senderUserId     String   @map("sender_user_id")
+  senderDeviceId   String   @map("sender_device_id") @db.VarChar(100)
+  senderDeviceName String   @map("sender_device_name") @db.VarChar(100)
+  targetDeviceId   String   @map("target_device_id") @db.VarChar(100)
+  targetDeviceName String?  @map("target_device_name") @db.VarChar(100)
+  title            String   @db.VarChar(255)
+  type             String   @default("file") @db.VarChar(50) // 'file' | 'clipboard' | 'workspace' | 'text' | 'image'
+  content          String?  @db.LongText
+  fileKey          String?  @map("file_key") @db.VarChar(500)
+  fileName         String?  @map("file_name") @db.VarChar(500)
+  fileSize         BigInt?  @map("file_size")
+  mimeType         String?  @map("mime_type") @db.VarChar(255)
+  status           String   @default("pending") @db.VarChar(30) // 'pending' | 'accepted' | 'declined' | 'completed'
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  sender User @relation("SentTransfers", fields: [senderUserId], references: [id], onDelete: Cascade)
+
+  @@index([targetDeviceId])
+  @@index([senderUserId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("device_transfers")
+}
+
+model Workspace {
+  id             String      @id @default(cuid())
+  ownerId        String?     @map("owner_id")
+  shareCode      String      @unique @map("share_code") @db.VarChar(20)
+  name           String      @db.VarChar(255)
+  description    String?     @db.Text
+  framework      String?     @db.VarChar(50) // e.g. "Next.js", "React", "Node.js", "Python"
+  language       String?     @db.VarChar(50) // e.g. "TypeScript", "JavaScript", "Python"
+  packageManager String?     @map("package_manager") @db.VarChar(50) // "npm" | "pnpm" | "yarn" | "bun"
+  totalFiles     Int         @default(0) @map("total_files")
+  totalSize      BigInt      @default(0) @map("total_size")
+  excludedCount  Int         @default(0) @map("excluded_count")
+  sensitiveCount Int         @default(0) @map("sensitive_count")
+  healthSummary  String?     @map("health_summary") @db.Text // JSON static health report
+  skippedSummary String?     @map("skipped_summary") @db.Text // JSON summary of skipped folders & reasons
+  status         ShareStatus @default(ACTIVE)
+  expiresAt      DateTime?   @map("expires_at")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  owner     User?               @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  files     WorkspaceFile[]
+  snapshots WorkspaceSnapshot[]
+
+  @@index([ownerId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("workspaces")
+}
+
+model WorkspaceFile {
+  id           String   @id @default(cuid())
+  workspaceId  String   @map("workspace_id")
+  relativePath String   @map("relative_path") @db.VarChar(1000)
+  filename     String   @db.VarChar(255)
+  fileSize     BigInt   @map("file_size")
+  mimeType     String   @map("mime_type") @db.VarChar(100)
+  fileKey      String?  @map("file_key") @db.VarChar(500)
+  category     String   @default("code") @db.VarChar(50) // 'code' | 'config' | 'asset' | 'doc' | 'other'
+  isSensitive  Boolean  @default(false) @map("is_sensitive")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([category])
+  @@index([fileKey])
+  @@map("workspace_files")
+}
+
+model WorkspaceSnapshot {
+  id             String   @id @default(cuid())
+  workspaceId    String   @map("workspace_id")
+  snapshotNumber Int      @default(1) @map("snapshot_number")
+  name           String   @db.VarChar(100)
+  description    String?  @db.VarChar(500)
+  totalFiles     Int      @map("total_files")
+  totalSize      BigInt   @map("total_size")
+  archiveKey     String?  @map("archive_key") @db.VarChar(500)
+  metadata       String?  @db.LongText // JSON file manifest snapshot
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([createdAt])
+  @@map("workspace_snapshots")
+}
+
+model ClipboardItem {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  deviceId  String?  @map("device_id") @db.VarChar(100)
+  type      String   @default("text") @db.VarChar(30) // 'text' | 'url' | 'code' | 'image'
+  content   String   @db.LongText
+  preview   String?  @db.VarChar(255)
+  category  String?  @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("clipboard_items")
 }
 
 model Share {

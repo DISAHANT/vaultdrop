@@ -1,9 +1,12 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { toast } from 'sonner';
-import { Download, FileText, Image, Film, Music, Archive, FileIcon, Lock, Clock, AlertTriangle, XCircle, Eye, Loader2 } from 'lucide-react';
+import {
+  Download, FileText, Image, Film, Music, Archive, FileIcon, Lock,
+  Clock, AlertTriangle, XCircle, Eye, Loader2, Activity, CheckCircle2, X
+} from 'lucide-react';
 import { formatBytes, timeUntilExpiry } from '@/lib/config';
 
 function getFileIcon(mimeType: string) {
@@ -13,6 +16,24 @@ function getFileIcon(mimeType: string) {
   if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('tar')) return Archive;
   if (mimeType.includes('pdf') || mimeType.includes('text') || mimeType.includes('document')) return FileText;
   return FileIcon;
+}
+
+function formatSpeed(bytesPerSec: number): string {
+  if (!bytesPerSec || bytesPerSec <= 0 || !isFinite(bytesPerSec)) return '0 KB/s';
+  if (bytesPerSec < 1024) return `${Math.round(bytesPerSec)} B/s`;
+  if (bytesPerSec < 1024 * 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
+  if (bytesPerSec < 1024 * 1024 * 1024) return `${(bytesPerSec / (1024 * 1024)).toFixed(1)} MB/s`;
+  return `${(bytesPerSec / (1024 * 1024 * 1024)).toFixed(2)} GB/s`;
+}
+
+function formatETA(remainingBytes: number, speedBytesPerSec: number): string {
+  if (!speedBytesPerSec || speedBytesPerSec <= 0 || remainingBytes <= 0 || !isFinite(speedBytesPerSec)) return '';
+  const seconds = Math.round(remainingBytes / speedBytesPerSec);
+  if (seconds < 1) return '< 1s left';
+  if (seconds < 60) return `~${seconds}s left`;
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `~${mins}m ${secs}s left`;
 }
 
 interface ShareFile {
@@ -39,6 +60,18 @@ interface ShareData {
   files: ShareFile[];
 }
 
+interface DownloadProgress {
+  id: string; // file.id or 'all'
+  filename: string;
+  loaded: number;
+  total: number;
+  percent: number;
+  speed: string;
+  speedBytes: number;
+  eta: string;
+  status: 'downloading' | 'completed' | 'error';
+}
+
 export default function ShareViewPage() {
   const params = useParams();
   const code = params.code as string;
@@ -50,7 +83,10 @@ export default function ShareViewPage() {
   const [verifying, setVerifying] = useState(false);
   const [verified, setVerified] = useState(false);
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState<DownloadProgress | null>(null);
   const [previewFile, setPreviewFile] = useState<ShareFile | null>(null);
+
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchShare = useCallback(async () => {
     try {
@@ -107,74 +143,179 @@ export default function ShareViewPage() {
     }
   };
 
-  const downloadFile = async (file: ShareFile) => {
-    setDownloading(file.id);
+  const cancelDownload = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setDownloading(null);
+    setDownloadProgress(null);
+    toast.info('Download cancelled');
+  }, []);
+
+  const triggerFileSave = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  };
+
+  const startStreamDownload = async (
+    id: string,
+    url: string,
+    filename: string,
+    expectedSize: number,
+    mimeType: string
+  ) => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    setDownloading(id);
+
+    setDownloadProgress({
+      id,
+      filename,
+      loaded: 0,
+      total: expectedSize,
+      percent: 0,
+      speed: 'Connecting...',
+      speedBytes: 0,
+      eta: '',
+      status: 'downloading',
+    });
+
     try {
-      const res = await fetch(`/api/shares/${code}/files/${file.id}/download?json=true`, {
-        headers: { Accept: 'application/json' },
-      });
+      const res = await fetch(url, { signal: controller.signal });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        toast.error(data.error || 'Download failed');
+        let errMessage = 'Download failed';
+        try {
+          const errData = await res.json();
+          if (errData?.error) errMessage = errData.error;
+        } catch {}
+        toast.error(errMessage);
+        setDownloading(null);
+        setDownloadProgress(null);
         return;
       }
 
-      const contentType = res.headers.get('content-type') || '';
-      if (contentType.includes('application/json')) {
-        const data = await res.json();
-        if (data.downloadUrl) {
-          const a = document.createElement('a');
-          a.href = data.downloadUrl;
-          a.download = file.originalFilename;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          toast.success(`Downloading "${file.originalFilename}"`);
-          return;
+      const contentLength = res.headers.get('content-length');
+      const total = (contentLength ? parseInt(contentLength, 10) : 0) || expectedSize || 0;
+
+      if (!res.body) {
+        const blob = await res.blob();
+        triggerFileSave(blob, filename);
+        setDownloading(null);
+        setDownloadProgress(null);
+        toast.success(`Downloaded "${filename}"`);
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let loaded = 0;
+
+      const startTime = performance.now();
+      let lastTime = startTime;
+      let lastLoaded = 0;
+      let speedEma = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        if (value) {
+          chunks.push(value);
+          loaded += value.length;
+
+          const now = performance.now();
+          const elapsed = (now - lastTime) / 1000;
+
+          if (elapsed >= 0.15 || loaded === total) {
+            const deltaBytes = loaded - lastLoaded;
+            const currentSpeed = elapsed > 0 ? deltaBytes / elapsed : 0;
+            speedEma = speedEma === 0 ? currentSpeed : speedEma * 0.7 + currentSpeed * 0.3;
+            lastTime = now;
+            lastLoaded = loaded;
+
+            const percent = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0;
+            const remainingBytes = Math.max(0, total - loaded);
+            const eta = speedEma > 0 && remainingBytes > 0 ? formatETA(remainingBytes, speedEma) : '';
+
+            setDownloadProgress({
+              id,
+              filename,
+              loaded,
+              total: total || loaded,
+              percent,
+              speed: formatSpeed(speedEma),
+              speedBytes: speedEma,
+              eta,
+              status: 'downloading',
+            });
+          }
         }
       }
 
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = file.originalFilename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success(`Downloaded "${file.originalFilename}"`);
-    } catch {
+      setDownloadProgress({
+        id,
+        filename,
+        loaded,
+        total: loaded,
+        percent: 100,
+        speed: formatSpeed(speedEma),
+        speedBytes: speedEma,
+        eta: 'Complete',
+        status: 'completed',
+      });
+
+      const blob = new Blob(chunks as unknown as BlobPart[], {
+        type: mimeType || res.headers.get('content-type') || 'application/octet-stream',
+      });
+      triggerFileSave(blob, filename);
+      toast.success(`Downloaded "${filename}"`);
+
+      fetchShare();
+
+      setTimeout(() => {
+        setDownloading(null);
+        setDownloadProgress(null);
+      }, 2200);
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        return;
+      }
+      console.error('Download stream error:', err);
       toast.error('Download failed');
-    } finally {
       setDownloading(null);
+      setDownloadProgress(null);
     }
   };
 
-  const downloadAll = async () => {
-    setDownloading('all');
-    try {
-      const res = await fetch(`/api/shares/${code}/download-all`);
-      if (!res.ok) {
-        const data = await res.json();
-        toast.error(data.error || 'Download failed');
-        return;
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${share?.title || `VaultDrop-${code}`}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success('All files downloaded');
-    } catch {
-      toast.error('Download failed');
-    } finally {
-      setDownloading(null);
-    }
+  const downloadFile = (file: ShareFile) => {
+    startStreamDownload(
+      file.id,
+      `/api/shares/${code}/files/${file.id}/download`,
+      file.originalFilename,
+      Number(file.fileSize),
+      file.mimeType
+    );
+  };
+
+  const downloadAll = () => {
+    const zipName = `${share?.title || `VaultDrop-${code}`}.zip`;
+    startStreamDownload(
+      'all',
+      `/api/shares/${code}/download-all`,
+      zipName,
+      Number(share?.totalSize) || 0,
+      'application/zip'
+    );
   };
 
   // Loading
@@ -273,17 +414,149 @@ export default function ShareViewPage() {
         <>
           {/* Download all */}
           {share.files.length > 1 && (
-            <button onClick={downloadAll} disabled={downloading === 'all'} className="btn-primary w-full py-4 mb-4 text-base animate-fade-up" style={{ animationDelay: '0.1s' }}>
-              {downloading === 'all' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Download className="w-5 h-5" />}
-              Download All ({share.totalFiles} files as ZIP)
-            </button>
+            downloadProgress?.id === 'all' ? (
+              <div className="glass-card p-5 mb-4 border border-[var(--accent)] shadow-lg space-y-3 animate-fade-up">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-[var(--accent-light)]">
+                    {downloadProgress.status === 'completed' ? (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                    ) : (
+                      <Archive className="w-5 h-5 animate-pulse text-[var(--accent)]" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold truncate">
+                        {downloadProgress.status === 'completed' ? 'ZIP Archive Downloaded' : 'Packaging & Downloading All Files...'}
+                      </p>
+                      <span className="font-mono text-sm font-bold text-[var(--accent)]">{downloadProgress.percent}%</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs flex-wrap mt-0.5">
+                      <span className="inline-flex items-center gap-1 font-medium text-emerald-600 dark:text-emerald-400">
+                        <Activity className="w-3.5 h-3.5 animate-pulse" />
+                        {downloadProgress.speed}
+                      </span>
+                      <span style={{ color: 'var(--text-tertiary)' }}>•</span>
+                      <span style={{ color: 'var(--text-secondary)' }}>
+                        {formatBytes(BigInt(downloadProgress.loaded))} / {formatBytes(BigInt(downloadProgress.total || share.totalSize))}
+                      </span>
+                      {downloadProgress.eta && (
+                        <>
+                          <span style={{ color: 'var(--text-tertiary)' }}>•</span>
+                          <span className="text-amber-500 font-medium">{downloadProgress.eta}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  {downloadProgress.status === 'downloading' && (
+                    <button
+                      onClick={cancelDownload}
+                      className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500 transition-colors"
+                      title="Cancel download"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="relative w-full h-2.5 rounded-full overflow-hidden bg-[var(--bg-secondary)]">
+                  <div
+                    className="h-full rounded-full transition-all duration-150 relative overflow-hidden"
+                    style={{
+                      width: `${downloadProgress.percent}%`,
+                      background: 'linear-gradient(90deg, #10b981, var(--accent), #06b6d4)',
+                      boxShadow: '0 0 12px rgba(36, 169, 112, 0.5)',
+                    }}
+                  >
+                    <div className="absolute inset-0 bg-white/25 animate-pulse" />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={downloadAll}
+                disabled={!!downloading}
+                className="btn-primary w-full py-4 mb-4 text-base animate-fade-up"
+                style={{ animationDelay: '0.1s' }}
+              >
+                <Download className="w-5 h-5" />
+                Download All ({share.totalFiles} files as ZIP)
+              </button>
+            )
           )}
 
-          {/* Files */}
+          {/* Files List */}
           <div className="space-y-2 animate-fade-up" style={{ animationDelay: '0.15s' }}>
             {share.files.map((file) => {
               const Icon = getFileIcon(file.mimeType);
               const isImage = file.mimeType.startsWith('image/');
+              const isThisDownloading = downloadProgress?.id === file.id;
+
+              if (isThisDownloading) {
+                return (
+                  <div
+                    key={file.id}
+                    className="p-4 rounded-xl border border-[var(--accent)] bg-[var(--bg-card)] shadow-lg transition-all space-y-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-[var(--accent-light)]">
+                        {downloadProgress.status === 'completed' ? (
+                          <CheckCircle2 className="w-5 h-5 text-emerald-500 animate-scale-in" />
+                        ) : (
+                          <Loader2 className="w-5 h-5 animate-spin text-[var(--accent)]" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-semibold truncate">{file.originalFilename}</p>
+                          <span className="font-mono text-sm font-bold text-[var(--accent)]">
+                            {downloadProgress.percent}%
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs flex-wrap mt-0.5">
+                          <span className="inline-flex items-center gap-1 font-medium text-emerald-600 dark:text-emerald-400">
+                            <Activity className="w-3.5 h-3.5 animate-pulse" />
+                            {downloadProgress.speed}
+                          </span>
+                          <span style={{ color: 'var(--text-tertiary)' }}>•</span>
+                          <span style={{ color: 'var(--text-secondary)' }}>
+                            {formatBytes(BigInt(downloadProgress.loaded))} / {formatBytes(BigInt(downloadProgress.total || file.fileSize))}
+                          </span>
+                          {downloadProgress.eta && (
+                            <>
+                              <span style={{ color: 'var(--text-tertiary)' }}>•</span>
+                              <span className="text-amber-500 font-medium">{downloadProgress.eta}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      {downloadProgress.status === 'downloading' && (
+                        <button
+                          onClick={cancelDownload}
+                          className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-500 transition-colors"
+                          title="Cancel download"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="relative w-full h-2 rounded-full overflow-hidden bg-[var(--bg-secondary)]">
+                      <div
+                        className="h-full rounded-full transition-all duration-150 relative overflow-hidden"
+                        style={{
+                          width: `${downloadProgress.percent}%`,
+                          background: 'linear-gradient(90deg, #10b981, var(--accent), #06b6d4)',
+                          boxShadow: '0 0 10px rgba(36, 169, 112, 0.5)',
+                        }}
+                      >
+                        <div className="absolute inset-0 bg-white/20 animate-pulse" />
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
               return (
                 <div key={file.id} className="file-card group">
                   <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'var(--accent-light)' }}>
@@ -301,11 +574,11 @@ export default function ShareViewPage() {
                     )}
                     <button
                       onClick={() => downloadFile(file)}
-                      disabled={downloading === file.id}
-                      className="p-2 rounded-lg hover:bg-[var(--accent-light)] transition-colors"
+                      disabled={!!downloading}
+                      className="p-2 rounded-lg hover:bg-[var(--accent-light)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                       title="Download"
                     >
-                      {downloading === file.id ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--accent)' }} /> : <Download className="w-4 h-4" style={{ color: 'var(--accent)' }} />}
+                      <Download className="w-4 h-4" style={{ color: 'var(--accent)' }} />
                     </button>
                   </div>
                 </div>
@@ -313,6 +586,59 @@ export default function ShareViewPage() {
             })}
           </div>
         </>
+      )}
+
+      {/* Floating Live Download Indicator Widget */}
+      {downloadProgress && downloadProgress.status === 'downloading' && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-md animate-fade-up">
+          <div className="backdrop-blur-xl bg-neutral-950/90 text-white p-4 rounded-2xl border border-white/15 shadow-2xl space-y-2.5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+                <p className="text-xs font-medium truncate max-w-[200px] text-neutral-200">
+                  {downloadProgress.filename}
+                </p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="text-xs font-mono font-bold text-emerald-400">
+                  {downloadProgress.percent}%
+                </span>
+                <button
+                  onClick={cancelDownload}
+                  className="text-neutral-400 hover:text-white transition-colors p-1"
+                  title="Cancel download"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Progress track */}
+            <div className="w-full h-1.5 rounded-full overflow-hidden bg-white/10">
+              <div
+                className="h-full rounded-full transition-all duration-150"
+                style={{
+                  width: `${downloadProgress.percent}%`,
+                  background: 'linear-gradient(90deg, #10b981, #06b6d4)',
+                }}
+              />
+            </div>
+
+            <div className="flex items-center justify-between text-[11px] text-neutral-400">
+              <span className="flex items-center gap-1 text-emerald-400 font-mono font-medium">
+                <Activity className="w-3 h-3" />
+                {downloadProgress.speed}
+              </span>
+              <span>
+                {formatBytes(BigInt(downloadProgress.loaded))} / {formatBytes(BigInt(downloadProgress.total))}
+              </span>
+              {downloadProgress.eta && <span className="text-amber-400">{downloadProgress.eta}</span>}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -3,6 +3,7 @@ import { broadcastClipboardEvent, type SyncClipboardPayload } from '@/lib/pusher
 import { nanoid } from 'nanoid';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
 
 function isUrl(str: string): boolean {
   try {
@@ -42,10 +43,10 @@ export async function POST(request: Request) {
     }
 
     const isImage = body.type === 'image' || trimmedText.startsWith('data:image/');
-    const maxLimit = isImage ? 10000000 : 500000; // 10MB for screenshot, 500KB for text
 
-    if (trimmedText.length > maxLimit) {
-      return NextResponse.json({ error: 'Payload exceeds maximum limit.' }, { status: 413 });
+    // Only enforce a limit for images (10MB base64); text content is unlimited
+    if (isImage && trimmedText.length > 10000000) {
+      return NextResponse.json({ error: 'Image payload exceeds maximum 10MB limit.' }, { status: 413 });
     }
 
     const payload: SyncClipboardPayload = {

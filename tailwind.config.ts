@@ -14,6 +14,21 @@ const config: Config = {
         mono: ["JetBrains Mono", "monospace"],
       },
       colors: {
+        zblack: "#000000",
+        obsidian: {
+          DEFAULT: "#050508",
+          card: "#09090e",
+          elevated: "#0f1017",
+          border: "rgba(255, 255, 255, 0.10)",
+          highlight: "rgba(255, 255, 255, 0.20)",
+        },
+        cyber: {
+          cyan: "#00f0ff",
+          azure: "#0077fe",
+          emerald: "#00f59b",
+          purple: "#a855f7",
+          glow: "rgba(0, 240, 255, 0.35)",
+        },
         brand: {
           50: "#eefbf4",
           100: "#d6f5e3",
@@ -37,6 +52,11 @@ const config: Config = {
         "glass-dark": "0 8px 32px rgba(0, 0, 0, 0.4)",
         glow: "0 0 20px rgba(36, 169, 112, 0.3)",
         "glow-lg": "0 0 40px rgba(36, 169, 112, 0.4)",
+        "glow-cyan": "0 0 30px rgba(0, 240, 255, 0.45)",
+        "glow-emerald": "0 0 30px rgba(0, 245, 155, 0.45)",
+        "skeuo-btn": "0 10px 25px -4px rgba(0, 240, 255, 0.45), inset 0 1.5px 0 rgba(255, 255, 255, 0.5), inset 0 -2px 4px rgba(0, 0, 0, 0.4)",
+        "skeuo-card": "0 25px 60px -15px rgba(0, 0, 0, 0.95), inset 0 1px 1px rgba(255, 255, 255, 0.16)",
+        "skeuo-well": "inset 0 2px 6px rgba(0, 0, 0, 0.95), inset 0 0 0 1px rgba(255, 255, 255, 0.07)",
       },
       animation: {
         "fade-in": "fadeIn 0.5s ease-out",

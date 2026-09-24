@@ -247,26 +247,48 @@ export async function registerDeviceHeartbeat(options: {
 
   if (!session) return null;
 
-  const device = await prisma.syncDevice.upsert({
-    where: {
-      sessionId_deviceId: {
+  // Wrap in try/catch to handle TiDB upsert race condition (P2002)
+  try {
+    const device = await prisma.syncDevice.upsert({
+      where: {
+        sessionId_deviceId: {
+          sessionId: session.id,
+          deviceId: options.deviceId,
+        },
+      },
+      create: {
         sessionId: session.id,
         deviceId: options.deviceId,
+        deviceName: options.deviceName.slice(0, 100),
+        isOnline: options.isOnline,
+        lastSeenAt: new Date(),
       },
-    },
-    create: {
-      sessionId: session.id,
-      deviceId: options.deviceId,
-      deviceName: options.deviceName.slice(0, 100),
-      isOnline: options.isOnline,
-      lastSeenAt: new Date(),
-    },
-    update: {
-      deviceName: options.deviceName.slice(0, 100),
-      isOnline: options.isOnline,
-      lastSeenAt: new Date(),
-    },
-  });
+      update: {
+        deviceName: options.deviceName.slice(0, 100),
+        isOnline: options.isOnline,
+        lastSeenAt: new Date(),
+      },
+    });
 
-  return device;
+    return device;
+  } catch (err: unknown) {
+    // Retry once on unique constraint race condition
+    if ((err as { code?: string }).code === 'P2002') {
+      const device = await prisma.syncDevice.update({
+        where: {
+          sessionId_deviceId: {
+            sessionId: session.id,
+            deviceId: options.deviceId,
+          },
+        },
+        data: {
+          deviceName: options.deviceName.slice(0, 100),
+          isOnline: options.isOnline,
+          lastSeenAt: new Date(),
+        },
+      });
+      return device;
+    }
+    throw err;
+  }
 }
