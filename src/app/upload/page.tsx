@@ -456,7 +456,7 @@ export default function UploadPage() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-10 md:py-16">
       <div className="text-center mb-10 space-y-2">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium uppercase tracking-wider bg-neutral-100 dark:bg-white/[0.04] text-neutral-700 dark:text-neutral-300 border border-neutral-200 dark:border-white/10 mb-1">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium uppercase tracking-wider bg-violet-50 dark:bg-violet-500/[0.06] text-violet-700 dark:text-violet-400 border border-violet-200 dark:border-violet-500/15 mb-1">
           <Upload className="w-3.5 h-3.5" />
           <span>High-Speed Secure Bridge</span>
         </div>
@@ -484,7 +484,7 @@ export default function UploadPage() {
           disabled={uploading}
           onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ''; }}
         />
-        <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-2 bg-neutral-100 dark:bg-white/[0.05] border border-neutral-200 dark:border-white/10 text-neutral-800 dark:text-neutral-200 shadow-sm">
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-2 bg-gradient-to-br from-violet-500/10 to-cyan-500/10 border border-violet-500/15 text-violet-600 dark:text-violet-400 shadow-sm">
           <Upload className="w-6 h-6" />
         </div>
         <div className="text-center space-y-1">
@@ -523,7 +523,7 @@ export default function UploadPage() {
                     {f.preview ? (
                       <img src={f.preview} alt="" className="w-11 h-11 rounded-xl object-cover border border-white/15 shadow-sm" />
                     ) : (
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-neutral-100 dark:bg-white/[0.05] border border-neutral-200 dark:border-white/10 text-neutral-700 dark:text-neutral-300 shrink-0">
+                      <div className="icon-badge-violet">
                         <Icon className="w-5 h-5" />
                       </div>
                     )}
@@ -555,7 +555,7 @@ export default function UploadPage() {
                   {uploading && filePct !== undefined && (
                     <div className="w-full h-1.5 bg-neutral-200 dark:bg-white/[0.08] rounded-full overflow-hidden mt-1.5">
                       <div
-                        className="h-full rounded-full transition-all duration-150 bg-neutral-900 dark:bg-white"
+                        className="h-full rounded-full transition-all duration-150 progress-gradient-violet"
                         style={{
                           width: `${filePct}%`,
                         }}
@@ -573,7 +573,7 @@ export default function UploadPage() {
       {files.length > 0 && !uploading && (
         <div className="glass-card p-6 md:p-8 mb-8 space-y-6 animate-fade-up">
           <div className="flex items-center gap-3 border-b border-black/[0.06] dark:border-white/[0.08] pb-4">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-neutral-100 dark:bg-white/[0.05] border border-neutral-200 dark:border-white/10 text-neutral-800 dark:text-neutral-200">
+            <div className="icon-badge-amber !w-9 !h-9">
               <Lock className="w-4 h-4" />
             </div>
             <div>
@@ -632,11 +632,11 @@ export default function UploadPage() {
         <div className="glass-card p-6 md:p-8 mb-6 border border-neutral-200 dark:border-white/10 shadow-2xl animate-fade-up space-y-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-neutral-100 dark:bg-white/[0.05] border border-neutral-200 dark:border-white/10 text-neutral-800 dark:text-neutral-200">
+              <div className="icon-badge-violet">
                 {uploadProgress.phase === 'completed' ? (
                   <CheckCircle2 className="w-5 h-5 text-emerald-500 animate-scale-in" />
                 ) : (
-                  <Activity className="w-5 h-5 animate-pulse text-neutral-400" />
+                  <Activity className="w-5 h-5 animate-pulse" />
                 )}
               </div>
               <div>
@@ -666,9 +666,9 @@ export default function UploadPage() {
           </div>
 
           {/* Progress Bar */}
-          <div className="relative w-full h-2 rounded-full overflow-hidden bg-neutral-200 dark:bg-white/[0.08]">
+          <div className="relative w-full h-2.5 rounded-full overflow-hidden bg-neutral-200 dark:bg-white/[0.08]">
             <div
-              className="h-full rounded-full transition-all duration-150 bg-neutral-900 dark:bg-white"
+              className="h-full rounded-full transition-all duration-150 progress-gradient-violet"
               style={{
                 width: `${uploadProgress.percent}%`,
               }}
@@ -698,7 +698,7 @@ export default function UploadPage() {
 
       {/* Upload Button */}
       {files.length > 0 && !uploading && (
-        <button onClick={handleUpload} className="btn-primary w-full py-3.5 text-sm font-semibold tracking-normal">
+        <button onClick={handleUpload} className="btn-accent-violet w-full py-3.5 text-sm font-semibold tracking-normal">
           <Upload className="w-4 h-4" />
           Create Share ({files.length} file{files.length > 1 ? 's' : ''} • {formatBytes(totalSize)})
         </button>

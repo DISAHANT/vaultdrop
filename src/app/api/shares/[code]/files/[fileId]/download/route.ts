@@ -91,7 +91,7 @@ export async function GET(
           });
         }
       } catch (streamError) {
-        console.warn('Direct Filebase stream failed, checking local object storage:', streamError);
+        console.warn('Direct Filebase stream failed, checking local object storage / DB:', streamError);
         try {
           const { getObjectBufferSafe } = await import('@/lib/storage/object-storage');
           const buf = await getObjectBufferSafe(fileInShare.fileKey);
@@ -109,12 +109,34 @@ export async function GET(
           }
         } catch {}
 
-        const downloadUrl = await createPresignedDownloadUrl({
-          fileKey: fileInShare.fileKey,
-          originalFilename: fileInShare.originalFilename,
-          expiresInSeconds: 60,
-        });
-        return NextResponse.redirect(downloadUrl, 302);
+        // Check database fallback before attempting external S3 redirect
+        try {
+          const storage = getStorageService();
+          const dbFile = await storage.getFile(params.fileId);
+          if (dbFile && dbFile.fileData) {
+            return new NextResponse(new Uint8Array(dbFile.fileData), {
+              headers: {
+                'Content-Type': dbFile.mimeType || 'application/octet-stream',
+                'Content-Disposition': `attachment; filename="${sanitizedFilename}"; filename*=UTF-8''${encodedFilename}`,
+                'Content-Length': dbFile.fileSize.toString(),
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'X-Content-Type-Options': 'nosniff',
+                'Access-Control-Expose-Headers': 'Content-Length, Content-Disposition',
+              },
+            });
+          }
+        } catch {}
+
+        if (process.env.FILEBASE_KEY && process.env.FILEBASE_SECRET) {
+          try {
+            const downloadUrl = await createPresignedDownloadUrl({
+              fileKey: fileInShare.fileKey,
+              originalFilename: fileInShare.originalFilename,
+              expiresInSeconds: 60,
+            });
+            return NextResponse.redirect(downloadUrl, 302);
+          } catch {}
+        }
       }
     }
 

@@ -25,6 +25,14 @@
     --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.04);
     --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.07), 0 4px 8px rgba(0, 0, 0, 0.03);
     --shadow-glow: 0 0 25px rgba(0, 119, 254, 0.2);
+
+    /* Feature accent colors (light mode) */
+    --color-codedrop: #0891b2;
+    --color-upload: #7c3aed;
+    --color-sync: #059669;
+    --color-security: #d97706;
+    --color-device: #0d9488;
+    --color-clipboard: #6366f1;
   }
 
   .dark {
@@ -48,6 +56,14 @@
     --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.8);
     --shadow-lg: 0 12px 36px -8px rgba(0, 0, 0, 0.9);
     --shadow-glow: 0 1px 3px rgba(0, 0, 0, 0.4);
+
+    /* Feature accent colors (dark mode — richer jewel tones) */
+    --color-codedrop: #22d3ee;
+    --color-upload: #a78bfa;
+    --color-sync: #34d399;
+    --color-security: #fbbf24;
+    --color-device: #2dd4bf;
+    --color-clipboard: #818cf8;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -67,7 +83,7 @@
   }
 
   ::selection {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(56, 189, 248, 0.3);
     color: #ffffff;
   }
 }
@@ -88,20 +104,22 @@
     border-color: rgba(255, 255, 255, 0.14);
   }
 
-  /* Professional High-End Primary Button (Linear / Vercel style) */
+  /* ─── BUTTON SYSTEM ─── */
+
+  /* Professional High-End Primary Button */
   .btn-primary {
     @apply relative inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-150 cursor-pointer select-none;
-    background: #09090b;
+    background: linear-gradient(135deg, #09090b 0%, #1a1a2e 100%);
     color: #ffffff;
-    border: 1px solid rgba(0, 0, 0, 0.8);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.04);
   }
 
   .btn-primary:hover {
-    background: #18181b;
-    border-color: #27272a;
+    background: linear-gradient(135deg, #18181b 0%, #272740 100%);
+    border-color: rgba(255, 255, 255, 0.1);
     transform: translateY(-0.5px);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
 
   .btn-primary:active {
@@ -110,18 +128,18 @@
   }
 
   .dark .btn-primary {
-    background: #ffffff;
+    background: linear-gradient(135deg, #ffffff 0%, #e8e8f0 100%);
     color: #09090b;
     border: 1px solid rgba(255, 255, 255, 0.95);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(255, 255, 255, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.8);
   }
 
   .dark .btn-primary:hover {
-    background: #f4f4f5;
+    background: linear-gradient(135deg, #f4f4f5 0%, #e0e0ea 100%);
     border-color: #ffffff;
     color: #000000;
     transform: translateY(-0.5px);
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 4px 16px rgba(255, 255, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9);
   }
 
   .dark .btn-primary:active {
@@ -178,6 +196,47 @@
     transform: translateY(0.5px);
   }
 
+  /* ─── COLORED ACCENT BUTTONS ─── */
+
+  .btn-accent-cyan {
+    @apply relative inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-150 cursor-pointer select-none;
+    background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);
+    color: #ffffff;
+    border: 1px solid rgba(6, 182, 212, 0.3);
+    box-shadow: 0 2px 8px rgba(6, 182, 212, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  }
+  .btn-accent-cyan:hover {
+    background: linear-gradient(135deg, #0e7490 0%, #0891b2 100%);
+    transform: translateY(-0.5px);
+    box-shadow: 0 4px 16px rgba(6, 182, 212, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+
+  .btn-accent-violet {
+    @apply relative inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-150 cursor-pointer select-none;
+    background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
+    color: #ffffff;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  }
+  .btn-accent-violet:hover {
+    background: linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%);
+    transform: translateY(-0.5px);
+    box-shadow: 0 4px 16px rgba(124, 58, 237, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+
+  .btn-accent-emerald {
+    @apply relative inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all duration-150 cursor-pointer select-none;
+    background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+    color: #ffffff;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    box-shadow: 0 2px 8px rgba(5, 150, 105, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  }
+  .btn-accent-emerald:hover {
+    background: linear-gradient(135deg, #047857 0%, #059669 100%);
+    transform: translateY(-0.5px);
+    box-shadow: 0 4px 16px rgba(5, 150, 105, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+
   /* Clean Recessed Input Well */
   .input {
     @apply w-full px-4 py-2.5 rounded-xl text-sm transition-all duration-150 outline-none;
@@ -188,8 +247,8 @@
   }
 
   .input:focus {
-    border-color: rgba(255, 255, 255, 0.28);
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2), inset 0 1.5px 3px rgba(0, 0, 0, 0.5);
+    border-color: rgba(56, 189, 248, 0.4);
+    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.1), inset 0 1.5px 3px rgba(0, 0, 0, 0.5);
   }
 
   .input::placeholder {
@@ -205,8 +264,8 @@
   }
 
   .dropzone:hover, .dropzone.drag-over {
-    border-color: rgba(255, 255, 255, 0.3);
-    background: rgba(255, 255, 255, 0.035);
+    border-color: rgba(56, 189, 248, 0.4);
+    background: rgba(56, 189, 248, 0.03);
   }
 
   .dropzone.drag-over {
@@ -239,6 +298,127 @@
     background: var(--bg-card);
     border: 1px solid var(--border-primary);
     box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  }
+
+  /* ─── GRADIENT PROGRESS BARS ─── */
+  .progress-gradient-cyan {
+    background: linear-gradient(90deg, #06b6d4, #22d3ee, #67e8f9);
+    background-size: 200% 100%;
+  }
+
+  .progress-gradient-violet {
+    background: linear-gradient(90deg, #7c3aed, #a78bfa, #c4b5fd);
+    background-size: 200% 100%;
+  }
+
+  .progress-gradient-emerald {
+    background: linear-gradient(90deg, #059669, #34d399, #6ee7b7);
+    background-size: 200% 100%;
+  }
+
+  .progress-gradient-rainbow {
+    background: linear-gradient(90deg, #06b6d4, #8b5cf6, #ec4899, #f59e0b, #10b981);
+    background-size: 300% 100%;
+    animation: shimmer-progress 3s ease infinite;
+  }
+
+  @keyframes shimmer-progress {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  /* ─── COLORED ICON BADGES ─── */
+  .icon-badge-cyan {
+    @apply w-10 h-10 rounded-xl flex items-center justify-center shrink-0;
+    background: linear-gradient(135deg, rgba(6, 182, 212, 0.12), rgba(34, 211, 238, 0.06));
+    border: 1px solid rgba(6, 182, 212, 0.15);
+    color: #0891b2;
+  }
+  .dark .icon-badge-cyan {
+    background: linear-gradient(135deg, rgba(34, 211, 238, 0.12), rgba(34, 211, 238, 0.04));
+    border-color: rgba(34, 211, 238, 0.15);
+    color: #22d3ee;
+  }
+
+  .icon-badge-violet {
+    @apply w-10 h-10 rounded-xl flex items-center justify-center shrink-0;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(167, 139, 250, 0.06));
+    border: 1px solid rgba(139, 92, 246, 0.15);
+    color: #7c3aed;
+  }
+  .dark .icon-badge-violet {
+    background: linear-gradient(135deg, rgba(167, 139, 250, 0.12), rgba(167, 139, 250, 0.04));
+    border-color: rgba(167, 139, 250, 0.15);
+    color: #a78bfa;
+  }
+
+  .icon-badge-emerald {
+    @apply w-10 h-10 rounded-xl flex items-center justify-center shrink-0;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(52, 211, 153, 0.06));
+    border: 1px solid rgba(16, 185, 129, 0.15);
+    color: #059669;
+  }
+  .dark .icon-badge-emerald {
+    background: linear-gradient(135deg, rgba(52, 211, 153, 0.12), rgba(52, 211, 153, 0.04));
+    border-color: rgba(52, 211, 153, 0.15);
+    color: #34d399;
+  }
+
+  .icon-badge-amber {
+    @apply w-10 h-10 rounded-xl flex items-center justify-center shrink-0;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(251, 191, 36, 0.06));
+    border: 1px solid rgba(245, 158, 11, 0.15);
+    color: #d97706;
+  }
+  .dark .icon-badge-amber {
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.12), rgba(251, 191, 36, 0.04));
+    border-color: rgba(251, 191, 36, 0.15);
+    color: #fbbf24;
+  }
+
+  .icon-badge-teal {
+    @apply w-10 h-10 rounded-xl flex items-center justify-center shrink-0;
+    background: linear-gradient(135deg, rgba(20, 184, 166, 0.12), rgba(45, 212, 191, 0.06));
+    border: 1px solid rgba(20, 184, 166, 0.15);
+    color: #0d9488;
+  }
+  .dark .icon-badge-teal {
+    background: linear-gradient(135deg, rgba(45, 212, 191, 0.12), rgba(45, 212, 191, 0.04));
+    border-color: rgba(45, 212, 191, 0.15);
+    color: #2dd4bf;
+  }
+
+  .icon-badge-indigo {
+    @apply w-10 h-10 rounded-xl flex items-center justify-center shrink-0;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(129, 140, 248, 0.06));
+    border: 1px solid rgba(99, 102, 241, 0.15);
+    color: #6366f1;
+  }
+  .dark .icon-badge-indigo {
+    background: linear-gradient(135deg, rgba(129, 140, 248, 0.12), rgba(129, 140, 248, 0.04));
+    border-color: rgba(129, 140, 248, 0.15);
+    color: #818cf8;
+  }
+
+  .icon-badge-rose {
+    @apply w-10 h-10 rounded-xl flex items-center justify-center shrink-0;
+    background: linear-gradient(135deg, rgba(244, 63, 94, 0.12), rgba(251, 113, 133, 0.06));
+    border: 1px solid rgba(244, 63, 94, 0.15);
+    color: #e11d48;
+  }
+  .dark .icon-badge-rose {
+    background: linear-gradient(135deg, rgba(251, 113, 133, 0.12), rgba(251, 113, 133, 0.04));
+    border-color: rgba(251, 113, 133, 0.15);
+    color: #fb7185;
+  }
+
+  /* ─── GRADIENT TEXT UTILITY ─── */
+  .gradient-text-brand {
+    background: linear-gradient(135deg, #06b6d4, #8b5cf6, #ec4899);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 }
 

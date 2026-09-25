@@ -41,6 +41,38 @@ export async function ensureBucketCors(): Promise<void> {
   }
 }
 
+let filebaseHealthCache: { isHealthy: boolean; checkedAt: number } | null = null;
+
+/**
+ * Checks whether Filebase credentials and bucket are configured and accessible.
+ * Result is cached for 2 minutes to avoid redundant network calls.
+ */
+export async function isFilebaseHealthy(): Promise<boolean> {
+  const key = process.env.FILEBASE_KEY;
+  const secret = process.env.FILEBASE_SECRET;
+  const bucket = process.env.FILEBASE_BUCKET;
+
+  if (!key || !secret || !bucket) {
+    return false;
+  }
+
+  const now = Date.now();
+  if (filebaseHealthCache && now - filebaseHealthCache.checkedAt < 120_000) {
+    return filebaseHealthCache.isHealthy;
+  }
+
+  try {
+    const s3 = getFilebaseClient();
+    const { HeadBucketCommand } = await import('@aws-sdk/client-s3');
+    await s3.send(new HeadBucketCommand({ Bucket: bucket }));
+    filebaseHealthCache = { isHealthy: true, checkedAt: now };
+    return true;
+  } catch {
+    filebaseHealthCache = { isHealthy: false, checkedAt: now };
+    return false;
+  }
+}
+
 /**
  * Returns a configured S3 client for Filebase object storage.
  */

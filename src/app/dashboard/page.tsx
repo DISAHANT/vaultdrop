@@ -154,7 +154,7 @@ export default function DashboardPage() {
         <div className="flex flex-wrap items-center gap-2">
           <Link
             href="/codedrop"
-            className="btn-primary text-xs py-2 px-3.5"
+            className="btn-accent-cyan text-xs py-2 px-3.5"
           >
             <FolderCode className="w-3.5 h-3.5" />
             <span>Upload Workspace</span>
@@ -196,40 +196,40 @@ export default function DashboardPage() {
       {/* 4 Primary Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Storage Used */}
-        <div className="p-6 rounded-3xl bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 shadow-lg">
+        <div className="p-6 rounded-3xl bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-cyan-200/50 dark:border-cyan-500/10 shadow-lg hover:border-cyan-500/30 dark:hover:border-cyan-500/15 transition-colors">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-neutral-500">Storage In Use</span>
-            <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+            <div className="icon-badge-cyan !w-9 !h-9">
               <HardDrive className="w-4 h-4" />
             </div>
           </div>
           <p className="text-2xl font-black text-neutral-900 dark:text-neutral-100">
             {formatBytes(parseInt(stats?.totalStoredSize || '0'))}
           </p>
-          <span className="text-[11px] text-neutral-400">Encrypted Filebase S3 Bucket</span>
+          <span className="text-[11px] text-cyan-600 dark:text-cyan-500/70">Encrypted Filebase S3 Bucket</span>
         </div>
 
         {/* CodeDrop Workspaces */}
-        <div className="p-6 rounded-3xl bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 shadow-lg">
+        <div className="p-6 rounded-3xl bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-indigo-200/50 dark:border-indigo-500/10 shadow-lg hover:border-indigo-500/30 dark:hover:border-indigo-500/15 transition-colors">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-neutral-500">Workspaces</span>
-            <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+            <div className="icon-badge-indigo !w-9 !h-9">
               <FolderCode className="w-4 h-4" />
             </div>
           </div>
           <p className="text-2xl font-black text-neutral-900 dark:text-neutral-100">
             {stats?.workspacesCount || 0}
           </p>
-          <span className="text-[11px] text-neutral-400">
+          <span className="text-[11px] text-indigo-600 dark:text-indigo-500/70">
             {stats?.workspaceFilesCount || 0} preserved files
           </span>
         </div>
 
         {/* Connected Devices */}
-        <div className="p-6 rounded-3xl bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 shadow-lg">
+        <div className="p-6 rounded-3xl bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-teal-200/50 dark:border-teal-500/10 shadow-lg hover:border-teal-500/30 dark:hover:border-teal-500/15 transition-colors">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-neutral-500">Linked Devices</span>
-            <div className="p-2 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400">
+            <div className="icon-badge-teal !w-9 !h-9">
               <Laptop className="w-4 h-4" />
             </div>
           </div>
@@ -241,21 +241,21 @@ export default function DashboardPage() {
               ● {stats?.onlineDevices || 0} online
             </span>
           </div>
-          <span className="text-[11px] text-neutral-400">Persistent device identities</span>
+          <span className="text-[11px] text-teal-600 dark:text-teal-500/70">Persistent device identities</span>
         </div>
 
         {/* Clipboard Snippets */}
-        <div className="p-6 rounded-3xl bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 shadow-lg">
+        <div className="p-6 rounded-3xl bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-emerald-200/50 dark:border-emerald-500/10 shadow-lg hover:border-emerald-500/30 dark:hover:border-emerald-500/15 transition-colors">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-neutral-500">Clipboard History</span>
-            <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <div className="icon-badge-emerald !w-9 !h-9">
               <Clipboard className="w-4 h-4" />
             </div>
           </div>
           <p className="text-2xl font-black text-neutral-900 dark:text-neutral-100">
             {stats?.clipboardCount || 0}
           </p>
-          <span className="text-[11px] text-neutral-400">Synced text, code & URLs</span>
+          <span className="text-[11px] text-emerald-600 dark:text-emerald-500/70">Synced text, code & URLs</span>
         </div>
       </div>
 
@@ -265,7 +265,7 @@ export default function DashboardPage() {
         <div className="p-6 sm:p-8 rounded-3xl bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 shadow-xl space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+              <div className="icon-badge-cyan !w-9 !h-9">
                 <FolderCode className="w-5 h-5" />
               </div>
               <div>
@@ -332,7 +332,7 @@ export default function DashboardPage() {
         <div className="p-6 sm:p-8 rounded-3xl bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 shadow-xl space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400">
+              <div className="icon-badge-teal !w-9 !h-9">
                 <Laptop className="w-5 h-5" />
               </div>
               <div>
@@ -403,7 +403,7 @@ export default function DashboardPage() {
         <div className="p-6 sm:p-8 rounded-3xl bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 shadow-xl space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+              <div className="icon-badge-violet !w-9 !h-9">
                 <Shield className="w-5 h-5" />
               </div>
               <div>
@@ -477,7 +477,7 @@ export default function DashboardPage() {
         <div className="p-6 sm:p-8 rounded-3xl bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 shadow-xl space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+              <div className="icon-badge-indigo !w-9 !h-9">
                 <Clipboard className="w-5 h-5" />
               </div>
               <div>

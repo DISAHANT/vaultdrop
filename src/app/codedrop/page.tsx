@@ -740,9 +740,9 @@ export default function CodeDropPage() {
                 Payload: {formatBytes(analysis.includedBytes)} · Dependencies skipped: {analysis.excludedCount}
               </p>
             </div>
-            <button
+              <button
               onClick={startUpload}
-              className="btn-primary w-full sm:w-auto px-7 py-3 text-sm font-semibold"
+              className="btn-accent-cyan w-full sm:w-auto px-7 py-3 text-sm font-semibold"
             >
               <UploadCloud className="w-4 h-4" />
               <span>Upload Workspace Now</span>
@@ -754,7 +754,7 @@ export default function CodeDropPage() {
       {/* PHASE 3: LIVE UPLOADING SCREEN */}
       {phase === 'uploading' && (
         <div className="max-w-2xl mx-auto bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 rounded-3xl p-8 sm:p-12 shadow-2xl text-center">
-          <div className="w-14 h-14 mx-auto mb-5 rounded-2xl bg-neutral-100 dark:bg-white/[0.05] text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-white/10 flex items-center justify-center">
+          <div className="icon-badge-cyan !w-14 !h-14">
             <UploadCloud className="w-7 h-7" />
           </div>
 
@@ -773,7 +773,7 @@ export default function CodeDropPage() {
           {/* Progress Bar */}
           <div className="w-full bg-neutral-200 dark:bg-neutral-800/90 h-3 rounded-full overflow-hidden mb-5 border border-neutral-300 dark:border-neutral-700">
             <div
-              className="bg-neutral-900 dark:bg-white h-full rounded-full transition-all duration-200"
+              className="progress-gradient-cyan h-full rounded-full transition-all duration-200"
               style={{ width: `${Math.max(2, uploadStats.percent)}%` }}
             />
           </div>

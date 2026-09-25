@@ -146,7 +146,7 @@ export default function WorkspacesPage() {
 
         <Link
           href="/codedrop"
-          className="btn-primary px-5 py-2.5 text-sm self-start sm:self-auto"
+          className="btn-accent-cyan px-5 py-2.5 text-sm self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
           <span>Upload Workspace</span>
@@ -155,20 +155,20 @@ export default function WorkspacesPage() {
 
       {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-        <div className="p-5 rounded-2xl bg-white/70 dark:bg-neutral-900/60 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 shadow-md">
-          <span className="text-xs text-neutral-500 block">Total Workspaces</span>
+        <div className="p-5 rounded-2xl bg-white/70 dark:bg-neutral-900/60 backdrop-blur-xl border border-cyan-200/50 dark:border-cyan-500/10 shadow-md">
+          <span className="text-xs text-cyan-600 dark:text-cyan-400 font-medium block">Total Workspaces</span>
           <p className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mt-1">
             {workspaces.length}
           </p>
         </div>
-        <div className="p-5 rounded-2xl bg-white/70 dark:bg-neutral-900/60 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 shadow-md">
-          <span className="text-xs text-neutral-500 block">Preserved Files</span>
+        <div className="p-5 rounded-2xl bg-white/70 dark:bg-neutral-900/60 backdrop-blur-xl border border-indigo-200/50 dark:border-indigo-500/10 shadow-md">
+          <span className="text-xs text-indigo-600 dark:text-indigo-400 font-medium block">Preserved Files</span>
           <p className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mt-1">
             {totalFiles.toLocaleString()}
           </p>
         </div>
-        <div className="p-5 rounded-2xl bg-white/70 dark:bg-neutral-900/60 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 shadow-md">
-          <span className="text-xs text-neutral-500 block">Encrypted Storage</span>
+        <div className="p-5 rounded-2xl bg-white/70 dark:bg-neutral-900/60 backdrop-blur-xl border border-violet-200/50 dark:border-violet-500/10 shadow-md">
+          <span className="text-xs text-violet-600 dark:text-violet-400 font-medium block">Encrypted Storage</span>
           <p className="text-2xl font-bold text-neutral-900 dark:text-neutral-100 mt-1">
             {formatBytes(totalStorage)}
           </p>
@@ -209,7 +209,7 @@ export default function WorkspacesPage() {
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-3">
                     <div className="flex items-center gap-2 truncate">
-                      <span className="p-2 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+                      <span className="icon-badge-cyan !w-9 !h-9">
                         <FolderCode className="w-5 h-5" />
                       </span>
                       <h3 className="text-lg font-bold text-neutral-900 dark:text-neutral-100 truncate">

@@ -9,9 +9,9 @@ import type {
 import { putObjectSafe, getObjectBufferSafe, deleteObjectSafe } from './object-storage';
 
 /**
- * Filebase (S3-compatible) & Local High-Performance Object Storage Service.
- * File binaries are securely persisted via safe object storage (SSD local fallback + S3 replication);
- * metadata is stored in MySQL/Prisma.
+ * Filebase (S3-compatible) & Database Hybrid Object Storage Service.
+ * File binaries are securely persisted via S3 cloud storage or high-reliability database LONGBLOB.
+ * Works seamlessly across both local development and Vercel serverless environments.
  */
 export class FilebaseStorageService implements StorageService {
   async saveFile(shareId: string, file: FileInput): Promise<StoredFileMetadata> {
@@ -20,12 +20,28 @@ export class FilebaseStorageService implements StorageService {
     const sanitizedName = this.sanitizeFilename(file.originalFilename);
     const fileKey = `shares/${shareId}/${Date.now()}-${sanitizedName}`;
 
-    // Safely store file payload (sub-millisecond SSD write + optional S3 replication)
-    await putObjectSafe({
-      fileKey,
-      buffer: file.buffer,
-      contentType: file.mimeType || 'application/octet-stream',
-    });
+    // 1. Attempt object storage write (Filebase S3 cloud upload + local/tmp cache)
+    let storageType: 'filebase' | 'local' | 'db' = 'db';
+    try {
+      const res = await putObjectSafe({
+        fileKey,
+        buffer: file.buffer,
+        contentType: file.mimeType || 'application/octet-stream',
+      });
+      storageType = res.storage;
+    } catch (err) {
+      console.warn(`Object storage write warning for ${fileKey}:`, err);
+    }
+
+    // 2. Persist record in Prisma.
+    // In serverless environments (Vercel) or when S3 is unavailable, we ALWAYS store
+    // the binary in database LONGBLOB (fileData) so files survive across ephemeral lambda instances.
+    const isServerless = !!(
+      process.env.VERCEL ||
+      process.env.AWS_LAMBDA_FUNCTION_NAME ||
+      process.cwd().startsWith('/var/task')
+    );
+    const shouldSaveInDb = storageType !== 'filebase' || isServerless;
 
     const record = await prisma.file.create({
       data: {
@@ -34,7 +50,7 @@ export class FilebaseStorageService implements StorageService {
         mimeType: file.mimeType || 'application/octet-stream',
         fileSize: BigInt(file.fileSize),
         fileKey: fileKey,
-        fileData: null, // Binary is securely stored in object storage
+        fileData: shouldSaveInDb ? file.buffer : null,
         checksum,
       },
       select: {
@@ -69,11 +85,11 @@ export class FilebaseStorageService implements StorageService {
 
     let buffer: Buffer | null = null;
 
-    // Check if legacy DB BLOB exists
+    // 1. Check database BLOB first (fastest and 100% reliable across serverless)
     if (file.fileData) {
       buffer = Buffer.from(file.fileData);
     } else if (file.fileKey) {
-      // Fetch binary from safe object storage (SSD local fallback + S3 replication)
+      // 2. Fetch binary from object storage (S3 / local cache)
       buffer = await getObjectBufferSafe(file.fileKey);
     }
 

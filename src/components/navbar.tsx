@@ -23,13 +23,13 @@ import {
 } from 'lucide-react';
 
 const mainNavLinks = [
-  { href: '/codedrop', label: 'CodeDrop', icon: FolderCode },
-  { href: '/workspaces', label: 'Workspaces', icon: Layers },
-  { href: '/devices', label: 'Devices', icon: Laptop },
-  { href: '/clipboard', label: 'Clipboard', icon: Clipboard },
-  { href: '/sync', label: 'Live Sync', icon: Radio },
-  { href: '/upload', label: 'Upload File', icon: Upload },
-  { href: '/receive', label: 'Receive', icon: Download },
+  { href: '/codedrop', label: 'CodeDrop', icon: FolderCode, color: 'text-cyan-500' },
+  { href: '/workspaces', label: 'Workspaces', icon: Layers, color: 'text-indigo-500' },
+  { href: '/devices', label: 'Devices', icon: Laptop, color: 'text-teal-500' },
+  { href: '/clipboard', label: 'Clipboard', icon: Clipboard, color: 'text-violet-500' },
+  { href: '/sync', label: 'Live Sync', icon: Radio, color: 'text-emerald-500' },
+  { href: '/upload', label: 'Upload File', icon: Upload, color: 'text-violet-500' },
+  { href: '/receive', label: 'Receive', icon: Download, color: 'text-amber-500' },
 ];
 
 export function Navbar() {
@@ -45,17 +45,17 @@ export function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Brand Logo */}
           <Link href="/" className="flex items-center gap-2.5 group flex-shrink-0">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 border border-neutral-700/60 dark:border-white/20 shadow-sm group-hover:scale-105 transition-transform duration-200">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-gradient-to-br from-cyan-500 to-violet-600 text-white border border-cyan-400/20 shadow-sm group-hover:scale-105 transition-transform duration-200">
               <Shield className="w-4 h-4" strokeWidth={2.5} />
             </div>
             <span className="text-base font-bold tracking-tight text-neutral-900 dark:text-white">
-              VAULT<span className="text-neutral-500 dark:text-neutral-400 font-semibold ml-0.5">DROP</span>
+              VAULT<span className="bg-gradient-to-r from-cyan-500 to-violet-500 bg-clip-text text-transparent font-extrabold ml-0.5">DROP</span>
             </span>
           </Link>
 
           {/* Desktop Navigation Links */}
           <nav className="hidden lg:flex items-center gap-1 p-1 rounded-xl bg-black/[0.03] dark:bg-white/[0.04] border border-black/[0.04] dark:border-white/[0.06]">
-            {mainNavLinks.map(({ href, label, icon: Icon }) => {
+            {mainNavLinks.map(({ href, label, icon: Icon, color }) => {
               const active = pathname === href || pathname.startsWith(href + '/');
               return (
                 <Link
@@ -67,7 +67,7 @@ export function Navbar() {
                       : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'
                   }`}
                 >
-                  <Icon className={`w-3.5 h-3.5 ${active ? 'text-neutral-900 dark:text-white' : 'text-neutral-400'}`} />
+                  <Icon className={`w-3.5 h-3.5 ${active ? color : 'text-neutral-400'}`} />
                   <span>{label}</span>
                 </Link>
               );
@@ -82,7 +82,7 @@ export function Navbar() {
                     : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'
                 }`}
               >
-                <LayoutDashboard className="w-3.5 h-3.5" />
+                <LayoutDashboard className={`w-3.5 h-3.5 ${pathname.startsWith('/dashboard') ? 'text-amber-500' : ''}`} />
                 <span>Dashboard</span>
               </Link>
             )}
@@ -96,9 +96,9 @@ export function Navbar() {
               <div className="hidden sm:flex items-center gap-2">
                 <Link
                   href="/dashboard"
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-neutral-100 dark:bg-white/[0.05] border border-neutral-200 dark:border-white/10 text-xs font-medium text-neutral-800 dark:text-neutral-200 hover:border-neutral-300 dark:hover:border-white/20 transition-colors"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-neutral-100 dark:bg-white/[0.05] border border-neutral-200 dark:border-white/10 text-xs font-medium text-neutral-800 dark:text-neutral-200 hover:border-cyan-500/30 dark:hover:border-cyan-500/20 transition-colors"
                 >
-                  <User className="w-3.5 h-3.5 text-neutral-400" />
+                  <User className="w-3.5 h-3.5 text-cyan-500" />
                   <span className="max-w-[120px] truncate">{session.user?.name || session.user?.email}</span>
                 </Link>
                 <button
@@ -112,7 +112,7 @@ export function Navbar() {
             ) : (
               <Link
                 href="/login"
-                className="btn-primary hidden sm:inline-flex text-xs py-2 px-4 rounded-xl"
+                className="btn-accent-cyan hidden sm:inline-flex text-xs py-2 px-4 rounded-xl"
               >
                 <LogIn className="w-3.5 h-3.5" />
                 <span>Sign In</span>
@@ -134,7 +134,7 @@ export function Navbar() {
         {mobileOpen && (
           <nav className="lg:hidden py-4 border-t border-neutral-200 dark:border-neutral-800 animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="grid grid-cols-2 gap-1.5 mb-4">
-              {mainNavLinks.map(({ href, label, icon: Icon }) => {
+              {mainNavLinks.map(({ href, label, icon: Icon, color }) => {
                 const active = pathname === href || pathname.startsWith(href + '/');
                 return (
                   <Link
@@ -147,7 +147,7 @@ export function Navbar() {
                         : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
                     }`}
                   >
-                    <Icon className="w-4 h-4" />
+                    <Icon className={`w-4 h-4 ${active ? color : ''}`} />
                     <span>{label}</span>
                   </Link>
                 );
@@ -172,7 +172,7 @@ export function Navbar() {
               {session ? (
                 <div className="flex items-center justify-between w-full">
                   <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-neutral-400" />
+                    <User className="w-4 h-4 text-cyan-500" />
                     <span className="text-xs font-medium text-neutral-800 dark:text-neutral-200 truncate max-w-[180px]">
                       {session.user?.name || session.user?.email}
                     </span>
@@ -189,7 +189,7 @@ export function Navbar() {
                 <Link
                   href="/login"
                   onClick={() => setMobileOpen(false)}
-                  className="btn-primary w-full text-xs py-2.5"
+                  className="btn-accent-cyan w-full text-xs py-2.5"
                 >
                   <LogIn className="w-4 h-4" />
                   <span>Sign In</span>

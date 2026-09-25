@@ -3,7 +3,7 @@ import { checkRateLimit, getClientIP } from '@/lib/rate-limit';
 import { validateFileUpload } from '@/lib/validation';
 import { CONFIG } from '@/lib/config';
 import { generateUniqueShareCode } from '@/lib/services/token-service';
-import { createPresignedUploadUrl } from '@/lib/filebase';
+import { createPresignedUploadUrl, isFilebaseHealthy } from '@/lib/filebase';
 import { nanoid } from 'nanoid';
 
 export const dynamic = 'force-dynamic';
@@ -39,6 +39,15 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'Upload rate limit exceeded. Please wait.' },
         { status: 429 }
+      );
+    }
+
+    // Verify S3 cloud storage is configured and reachable
+    const healthy = await isFilebaseHealthy();
+    if (!healthy) {
+      return NextResponse.json(
+        { error: 'Direct cloud storage upload is currently unavailable. Using server pipeline.', fallbackToServer: true },
+        { status: 503 }
       );
     }
 
