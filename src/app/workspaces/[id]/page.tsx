@@ -225,9 +225,9 @@ export default function WorkspaceDetailPage({ params }: { params: { id: string }
 
             <button
               onClick={() => setSendModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-white text-xs font-semibold transition-all shadow-sm"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-neutral-800 hover:bg-slate-50 dark:hover:bg-neutral-700 text-xs font-semibold transition-all text-slate-800 dark:text-neutral-200 shadow-sm"
             >
-              <Send className="w-4 h-4" />
+              <Send className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
               <span>Send to Device</span>
             </button>
 
@@ -388,8 +388,8 @@ export default function WorkspaceDetailPage({ params }: { params: { id: string }
               onClick={() => setSelectedCategory(cat)}
               className={`px-3 py-1.5 rounded-xl font-medium capitalize transition-all ${
                 selectedCategory === cat
-                  ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-950 font-semibold shadow-sm'
-                  : 'bg-neutral-100 dark:bg-white/[0.05] text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                  ? 'bg-indigo-600 text-white dark:bg-white dark:text-neutral-950 font-semibold shadow-sm'
+                  : 'bg-slate-100 dark:bg-white/[0.05] text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               {cat}
@@ -401,7 +401,7 @@ export default function WorkspaceDetailPage({ params }: { params: { id: string }
             className={`px-3 py-1.5 rounded-xl font-medium transition-all inline-flex items-center gap-1.5 ${
               showOnlySensitive
                 ? 'bg-amber-500 text-neutral-950 font-semibold shadow-sm'
-                : 'bg-neutral-100 dark:bg-white/[0.05] text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white'
+                : 'bg-slate-100 dark:bg-white/[0.05] text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <Lock className="w-3 h-3" />

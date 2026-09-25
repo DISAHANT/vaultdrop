@@ -22,13 +22,13 @@ import { IncomingTransferListener } from '@/components/incoming-transfer-listene
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="relative overflow-x-hidden min-h-screen bg-black text-white selection:bg-neutral-800 selection:text-white">
+      <body className="relative overflow-x-hidden min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] selection:bg-indigo-500/20 selection:text-slate-900 dark:selection:bg-neutral-800 dark:selection:text-white transition-colors duration-200">
         <ThemeProvider>
           <AuthProvider>
             <div className="min-h-screen flex flex-col">
               <Navbar />
               <main className="flex-1">{children}</main>
-              <footer className="py-6 text-center text-xs tracking-wider uppercase text-neutral-500 dark:text-neutral-500 border-t border-black/[0.05] dark:border-white/[0.06] bg-black/[0.01] dark:bg-black/40 backdrop-blur-md">
+              <footer className="py-6 text-center text-xs tracking-wider uppercase text-slate-500 dark:text-neutral-500 border-t border-slate-200/90 dark:border-white/[0.06] bg-white/70 dark:bg-black/40 backdrop-blur-md">
                 <p>VaultDrop — Cross-Device Workspace & File Bridge</p>
               </footer>
             </div>

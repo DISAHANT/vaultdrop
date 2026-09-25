@@ -583,14 +583,14 @@ export default function ShareViewPage() {
       {/* Floating Live Download Indicator Widget */}
       {downloadProgress && downloadProgress.status === 'downloading' && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-md animate-fade-up">
-          <div className="backdrop-blur-xl bg-neutral-950/90 text-white p-4 rounded-2xl border border-white/15 shadow-2xl space-y-2.5">
+          <div className="backdrop-blur-xl bg-white/95 dark:bg-neutral-950/90 text-slate-900 dark:text-white p-4 rounded-2xl border border-slate-200 dark:border-white/15 shadow-2xl space-y-2.5">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="relative flex h-2.5 w-2.5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
                 </span>
-                <p className="text-xs font-medium truncate max-w-[200px] text-neutral-200">
+                <p className="text-xs font-medium truncate max-w-[200px] text-slate-700 dark:text-neutral-200">
                   {downloadProgress.filename}
                 </p>
               </div>

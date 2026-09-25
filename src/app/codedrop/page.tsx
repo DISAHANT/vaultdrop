@@ -733,10 +733,10 @@ export default function CodeDropPage() {
           </div>
 
           {/* Action Trigger Bar */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-6 rounded-3xl bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 shadow-2xl">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-6 rounded-3xl bg-white dark:bg-neutral-900 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white shadow-xl">
             <div>
               <p className="text-sm font-bold">Ready to upload {analysis.includedCount} files?</p>
-              <p className="text-xs text-neutral-400 dark:text-neutral-600">
+              <p className="text-xs text-slate-500 dark:text-neutral-400">
                 Payload: {formatBytes(analysis.includedBytes)} · Dependencies skipped: {analysis.excludedCount}
               </p>
             </div>
