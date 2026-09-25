@@ -29,6 +29,8 @@ model User {
   workspaces     Workspace[]
   clipboardItems ClipboardItem[]
   sentTransfers  DeviceTransfer[] @relation("SentTransfers")
+  sentWorkspaceShares     WorkspaceShare[] @relation("SentWorkspaceShares")
+  receivedWorkspaceShares WorkspaceShare[] @relation("ReceivedWorkspaceShares")
 
   @@map("users")
 }
@@ -96,8 +98,8 @@ model Workspace {
   totalSize      BigInt      @default(0) @map("total_size")
   excludedCount  Int         @default(0) @map("excluded_count")
   sensitiveCount Int         @default(0) @map("sensitive_count")
-  healthSummary  String?     @map("health_summary") @db.Text // JSON static health report
-  skippedSummary String?     @map("skipped_summary") @db.Text // JSON summary of skipped folders & reasons
+  healthSummary  String?     @map("health_summary") @db.LongText // JSON static health report
+  skippedSummary String?     @map("skipped_summary") @db.LongText // JSON summary of skipped folders & reasons
   status         ShareStatus @default(ACTIVE)
   expiresAt      DateTime?   @map("expires_at")
   createdAt      DateTime    @default(now()) @map("created_at")
@@ -106,11 +108,34 @@ model Workspace {
   owner     User?               @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   files     WorkspaceFile[]
   snapshots WorkspaceSnapshot[]
+  shares    WorkspaceShare[]
 
   @@index([ownerId])
   @@index([status])
   @@index([createdAt])
   @@map("workspaces")
+}
+
+model WorkspaceShare {
+  id             String    @id @default(cuid())
+  workspaceId    String    @map("workspace_id")
+  senderId       String    @map("sender_id")
+  recipientEmail String    @map("recipient_email") @db.VarChar(255)
+  recipientId    String?   @map("recipient_id")
+  permission     String    @default("download") @db.VarChar(50) // 'view' | 'download'
+  message        String?   @db.VarChar(500)
+  status         String    @default("sent") @db.VarChar(50) // 'sent' | 'pending' | 'accepted'
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  sender    User      @relation("SentWorkspaceShares", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient User?     @relation("ReceivedWorkspaceShares", fields: [recipientId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId])
+  @@index([recipientEmail])
+  @@index([recipientId])
+  @@index([senderId])
+  @@map("workspace_shares")
 }
 
 model WorkspaceFile {

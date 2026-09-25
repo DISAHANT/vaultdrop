@@ -119,7 +119,7 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: '/login',
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || 'vaultdrop-super-secret-key-change-in-production-2024',
 };
 
 /**

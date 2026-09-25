@@ -13,10 +13,29 @@ export async function GET() {
     }
 
     const workspaces = await prisma.workspace.findMany({
-      where: { ownerId: user.id },
-
+      where: {
+        OR: [
+          { ownerId: user.id },
+          {
+            shares: {
+              some: {
+                OR: [
+                  { recipientId: user.id },
+                  { recipientEmail: user.email.toLowerCase() },
+                ],
+              },
+            },
+          },
+        ],
+      },
       orderBy: { updatedAt: 'desc' },
       include: {
+        owner: {
+          select: { id: true, name: true, email: true },
+        },
+        shares: {
+          select: { id: true, recipientEmail: true, permission: true },
+        },
         snapshots: {
           select: { id: true, name: true, createdAt: true },
         },
@@ -29,6 +48,8 @@ export async function GET() {
         if (ws.healthSummary) healthReport = JSON.parse(ws.healthSummary);
       } catch {}
 
+      const isOwner = ws.ownerId === user.id;
+
       return {
         id: ws.id,
         name: ws.name,
@@ -39,6 +60,9 @@ export async function GET() {
         skippedCount: ws.excludedCount,
         skippedBytes: 0,
         healthReport,
+        isOwner,
+        ownerName: ws.owner?.name || ws.owner?.email || 'Developer',
+        sharesCount: ws.shares.length,
         snapshotsCount: ws.snapshots.length,
         createdAt: ws.createdAt,
         updatedAt: ws.updatedAt,

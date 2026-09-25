@@ -19,6 +19,16 @@ export async function GET(
     const workspace = await prisma.workspace.findUnique({
       where: { id: params.id },
       include: {
+        owner: {
+          select: { id: true, name: true, email: true },
+        },
+        shares: {
+          include: {
+            recipient: {
+              select: { id: true, name: true, email: true, avatarUrl: true },
+            },
+          },
+        },
         files: {
           orderBy: { relativePath: 'asc' },
         },
@@ -32,10 +42,14 @@ export async function GET(
       return NextResponse.json({ error: 'Workspace not found.' }, { status: 404 });
     }
 
-    if (workspace.ownerId !== user.id) {
+    const isOwner = workspace.ownerId === user.id;
+    const isSharedRecipient = workspace.shares.some(
+      (s) => s.recipientId === user.id || s.recipientEmail === user.email.toLowerCase()
+    );
+
+    if (!isOwner && !isSharedRecipient) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-
 
     let healthReport = null;
     let skippedReport = [];
@@ -49,10 +63,13 @@ export async function GET(
       name: workspace.name,
       shareCode: workspace.shareCode,
       description: workspace.description,
+      isOwner,
+      ownerName: workspace.owner?.name || workspace.owner?.email || 'Developer',
       fileCount: workspace.totalFiles,
       totalBytes: Number(workspace.totalSize),
       skippedCount: workspace.excludedCount,
       skippedBytes: 0,
+      sharesCount: workspace.shares.length,
       skippedReport,
       healthReport,
       createdAt: workspace.createdAt,

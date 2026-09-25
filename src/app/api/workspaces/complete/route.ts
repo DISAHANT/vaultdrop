@@ -45,10 +45,23 @@ export async function POST(request: Request) {
     const shareCode = nanoid(10).toUpperCase();
     const sensitiveCount = body.files.filter((f) => f.isSensitive).length;
 
+    let skippedSummaryStr: string | null = null;
+    let healthSummaryStr: string | null = null;
+    try {
+      if (body.skippedReport) {
+        skippedSummaryStr = JSON.stringify(body.skippedReport);
+      }
+      if (body.healthReport) {
+        healthSummaryStr = JSON.stringify(body.healthReport);
+      }
+    } catch {}
+
+    const totalBytesNum = Math.max(0, Math.round(Number(body.totalBytes || 0)));
+
+    // Create workspace record first
     const workspace = await prisma.workspace.create({
       data: {
         ownerId: user.id,
-
         shareCode,
         name: body.name.trim().slice(0, 200),
         description: body.description?.trim().slice(0, 500) || null,
@@ -56,27 +69,33 @@ export async function POST(request: Request) {
         language: body.healthReport?.language || null,
         packageManager: body.healthReport?.packageManager || null,
         totalFiles: body.fileCount,
-        totalSize: BigInt(body.totalBytes || 0),
+        totalSize: BigInt(totalBytesNum),
         excludedCount: body.skippedCount || 0,
         sensitiveCount,
-        skippedSummary: JSON.stringify(body.skippedReport || {}),
-        healthSummary: JSON.stringify(body.healthReport || {}),
-        files: {
-          create: body.files.map((f) => ({
-            relativePath: f.relativePath,
-            filename: f.fileName,
-            fileSize: BigInt(f.fileSize || 0),
-            mimeType: f.mimeType || 'application/octet-stream',
-            category: f.category || 'other',
-            isSensitive: !!f.isSensitive,
-            fileKey: f.s3Key,
-          })),
-        },
-      },
-      include: {
-        files: true,
+        skippedSummary: skippedSummaryStr,
+        healthSummary: healthSummaryStr,
       },
     });
+
+    // Chunked insert of workspace files (200 files per chunk) to avoid database payload limits
+    const CHUNK_SIZE = 200;
+    const fileRecords = body.files.map((f) => ({
+      workspaceId: workspace.id,
+      relativePath: (f.relativePath || f.fileName || 'file').slice(0, 1000),
+      filename: (f.fileName || 'file').slice(0, 255),
+      fileSize: BigInt(Math.max(0, Math.round(Number(f.fileSize || 0)))),
+      mimeType: (f.mimeType || 'application/octet-stream').slice(0, 100),
+      category: (f.category || 'other').slice(0, 50),
+      isSensitive: !!f.isSensitive,
+      fileKey: f.s3Key ? f.s3Key.slice(0, 500) : null,
+    }));
+
+    for (let i = 0; i < fileRecords.length; i += CHUNK_SIZE) {
+      const chunk = fileRecords.slice(i, i + CHUNK_SIZE);
+      await prisma.workspaceFile.createMany({
+        data: chunk,
+      });
+    }
 
     return NextResponse.json({
       success: true,
@@ -90,8 +109,8 @@ export async function POST(request: Request) {
         createdAt: workspace.createdAt,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Workspace complete error:', error);
-    return NextResponse.json({ error: 'Failed to record workspace.' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Failed to record workspace.' }, { status: 500 });
   }
 }

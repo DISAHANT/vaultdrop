@@ -13,19 +13,29 @@ export async function GET(
   try {
     const user = await getSessionUser();
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const { searchParams } = new URL(request.url);
+    const codeParam = searchParams.get('code');
 
     const workspace = await prisma.workspace.findUnique({
       where: { id: params.id },
       include: {
+        shares: true,
         files: true,
       },
     });
 
-    if (!workspace || workspace.ownerId !== user.id) {
-      return NextResponse.json({ error: 'Workspace not found or unauthorized.' }, { status: 404 });
+    if (!workspace) {
+      return NextResponse.json({ error: 'Workspace not found.' }, { status: 404 });
+    }
+
+    const isOwner = user && workspace.ownerId === user.id;
+    const isSharedRecipient = user && workspace.shares.some(
+      (s) => s.recipientId === user.id || s.recipientEmail === user.email.toLowerCase()
+    );
+    const isValidCode = codeParam && codeParam.toUpperCase() === workspace.shareCode.toUpperCase();
+
+    if (!isOwner && !isSharedRecipient && !isValidCode) {
+      return NextResponse.json({ error: 'Unauthorized to download this workspace.' }, { status: 403 });
     }
 
 

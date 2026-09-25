@@ -18,13 +18,18 @@ import {
   Eye,
   Camera,
   Archive,
+  Users,
 } from 'lucide-react';
 import SendToDeviceModal from '@/components/send-to-device-modal';
+import SendToPeopleModal from '@/components/send-to-people-modal';
 import { toast } from 'sonner';
 
 interface WorkspaceSummary {
   id: string;
   name: string;
+  shareCode: string;
+  isOwner?: boolean;
+  ownerName?: string;
   description?: string;
   fileCount: number;
   totalBytes: number;
@@ -43,6 +48,7 @@ export default function WorkspacesPage() {
 
   // Send to device state
   const [selectedWorkspaceForSend, setSelectedWorkspaceForSend] = useState<WorkspaceSummary | null>(null);
+  const [selectedWorkspaceForPeople, setSelectedWorkspaceForPeople] = useState<WorkspaceSummary | null>(null);
 
   const formatBytes = (bytes: number) => {
     if (!bytes || bytes === 0) return '0 B';
@@ -266,6 +272,13 @@ export default function WorkspacesPage() {
 
                   <div className="flex items-center gap-1">
                     <button
+                      onClick={() => setSelectedWorkspaceForPeople(ws)}
+                      title="Send to People"
+                      className="p-2 rounded-xl hover:bg-cyan-500/10 text-neutral-600 dark:text-neutral-400 hover:text-cyan-500 transition-colors"
+                    >
+                      <Users className="w-4 h-4" />
+                    </button>
+                    <button
                       onClick={() => setSelectedWorkspaceForSend(ws)}
                       title="Send to Device"
                       className="p-2 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:text-cyan-500 transition-colors"
@@ -307,6 +320,21 @@ export default function WorkspacesPage() {
             projectName: selectedWorkspaceForSend.name,
             fileCount: selectedWorkspaceForSend.fileCount,
             totalBytes: selectedWorkspaceForSend.totalBytes,
+          }}
+        />
+      )}
+
+      {/* Send to People Modal */}
+      {selectedWorkspaceForPeople && (
+        <SendToPeopleModal
+          isOpen={!!selectedWorkspaceForPeople}
+          onClose={() => setSelectedWorkspaceForPeople(null)}
+          workspace={{
+            id: selectedWorkspaceForPeople.id,
+            name: selectedWorkspaceForPeople.name,
+            fileCount: selectedWorkspaceForPeople.fileCount,
+            totalBytes: selectedWorkspaceForPeople.totalBytes,
+            shareCode: selectedWorkspaceForPeople.shareCode,
           }}
         />
       )}

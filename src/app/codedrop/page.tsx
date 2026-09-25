@@ -14,6 +14,8 @@ import {
   Eye,
   Sliders,
   Send,
+  Users,
+  Mail,
   ArrowRight,
   HardDrive,
   Cpu,
@@ -36,11 +38,13 @@ import {
   ExclusionRule,
   analyzeWorkspaceFiles,
   WorkspaceAnalysisResult,
+  FileScanItem,
 } from '@/lib/workspace/exclusions';
 import { checkSensitiveFile } from '@/lib/workspace/sensitive';
 import { categorizeFile, getCategoryBadge } from '@/lib/workspace/categories';
 import { analyzeProjectHealth, ProjectHealthReport } from '@/lib/workspace/health';
 import SendToDeviceModal from '@/components/send-to-device-modal';
+import SendToPeopleModal from '@/components/send-to-people-modal';
 import { toast } from 'sonner';
 
 interface SensitiveFileItem {
@@ -70,7 +74,17 @@ export default function CodeDropPage() {
   const [analyzingCount, setAnalyzingCount] = useState(0);
 
   // Upload progress state
-  const [uploadStats, setUploadStats] = useState({
+  const [uploadStats, setUploadStats] = useState<{
+    totalFiles: number;
+    uploadedFiles: number;
+    totalBytes: number;
+    uploadedBytes: number;
+    percent: number;
+    speedBps: number;
+    currentFile: string;
+    etaSeconds: number;
+    stage: 'uploading' | 'processing' | 'completed';
+  }>({
     totalFiles: 0,
     uploadedFiles: 0,
     totalBytes: 0,
@@ -79,11 +93,21 @@ export default function CodeDropPage() {
     speedBps: 0,
     currentFile: '',
     etaSeconds: 0,
+    stage: 'uploading',
   });
 
   // Completed workspace state
   const [completedWorkspaceId, setCompletedWorkspaceId] = useState<string | null>(null);
+  const [completedWorkspace, setCompletedWorkspace] = useState<{
+    id: string;
+    name: string;
+    fileCount: number;
+    totalBytes: number;
+    shareCode: string;
+  } | null>(null);
   const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [sendToPeopleOpen, setSendToPeopleOpen] = useState(false);
+  const [quickShareEmail, setQuickShareEmail] = useState('');
 
   // Format bytes helper
   const formatBytes = (bytes: number) => {
@@ -214,6 +238,7 @@ export default function CodeDropPage() {
       speedBps: 0,
       currentFile: 'Requesting secure upload authorization...',
       etaSeconds: 0,
+      stage: 'uploading',
     });
 
 
@@ -248,124 +273,211 @@ export default function CodeDropPage() {
       const presignData = await presignRes.json();
       const filesWithUrls = presignData.files;
 
-      // 2. High-speed concurrent upload worker pool (12 workers)
-      const CONCURRENCY = 12;
+      // 2. High-speed intelligent batch worker pool
+      // Group small files (< 1.5MB) into batches of up to 15 files (or 2.5MB total)
+      // to reduce HTTP round-trip overhead by 80-90% and prevent network timeouts.
+      const uploadTasks: {
+        type: 'batch' | 'single';
+        files: Array<{ item: FileScanItem; meta: any }>;
+        batchBytes: number;
+      }[] = [];
+
+      let currentBatch: Array<{ item: FileScanItem; meta: any }> = [];
+      let currentBatchBytes = 0;
+
+      for (let i = 0; i < finalFilesToUpload.length; i++) {
+        const item = finalFilesToUpload[i];
+        const meta = filesWithUrls[i];
+
+        // Files >= 1.5MB get individual tasks for fine-grained progress updates
+        if (item.size >= 1.5 * 1024 * 1024) {
+          if (currentBatch.length > 0) {
+            uploadTasks.push({ type: 'batch', files: currentBatch, batchBytes: currentBatchBytes });
+            currentBatch = [];
+            currentBatchBytes = 0;
+          }
+          uploadTasks.push({ type: 'single', files: [{ item, meta }], batchBytes: item.size });
+          continue;
+        }
+
+        // Flush batch if adding this file exceeds 15 files or 2.5MB
+        if (currentBatch.length >= 15 || currentBatchBytes + item.size > 2.5 * 1024 * 1024) {
+          uploadTasks.push({ type: 'batch', files: currentBatch, batchBytes: currentBatchBytes });
+          currentBatch = [];
+          currentBatchBytes = 0;
+        }
+
+        currentBatch.push({ item, meta });
+        currentBatchBytes += item.size;
+      }
+
+      if (currentBatch.length > 0) {
+        uploadTasks.push({ type: 'batch', files: currentBatch, batchBytes: currentBatchBytes });
+      }
+
+      const CONCURRENCY = Math.min(6, Math.max(1, uploadTasks.length));
 
       let loadedBytes = 0;
-      let completedCount = 0;
+      let completedFilesCount = 0;
       let lastTime = performance.now();
       let lastLoaded = 0;
 
-      const uploadQueue = [...finalFilesToUpload.map((item, idx) => ({ item, meta: filesWithUrls[idx] }))];
+      const queue = [...uploadTasks];
       const completedFiles: any[] = [];
 
-      const worker = async () => {
-        while (uploadQueue.length > 0) {
-          const task = uploadQueue.shift();
-          if (!task) break;
-
-          const { item, meta } = task;
-          setUploadStats((prev) => ({
-            ...prev,
-            currentFile: item.relativePath,
-          }));
-
-          await new Promise<void>((resolve, reject) => {
-            const formData = new FormData();
-            formData.append('file', item.file);
-            formData.append('fileKey', meta.fileKey);
-
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', '/api/workspaces/upload-file');
-
-            let previousFileLoaded = 0;
-
-            xhr.upload.onprogress = (evt) => {
-              if (evt.lengthComputable) {
-                const delta = evt.loaded - previousFileLoaded;
-                previousFileLoaded = evt.loaded;
-                loadedBytes += delta;
-
-                const now = performance.now();
-                const timeDiff = (now - lastTime) / 1000;
-                let speed = 0;
-                if (timeDiff >= 0.3) {
-                  speed = (loadedBytes - lastLoaded) / timeDiff;
-                  lastLoaded = loadedBytes;
-                  lastTime = now;
-                }
-
-                const bytePercent = totalBytes > 0 ? Math.round((loadedBytes / totalBytes) * 100) : 0;
-                const filePercent = Math.round((completedCount / finalFilesToUpload.length) * 100);
-                const currentPercent = Math.min(99, Math.max(bytePercent, filePercent));
-                const remainingBytes = Math.max(0, totalBytes - loadedBytes);
-                const currentEta = speed > 0 ? Math.ceil(remainingBytes / speed) : 0;
-
-                setUploadStats((prev) => ({
-                  ...prev,
-                  uploadedBytes: loadedBytes,
-                  percent: Math.max(prev.percent, currentPercent),
-                  speedBps: speed > 0 ? speed : prev.speedBps,
-                  etaSeconds: currentEta > 0 ? currentEta : prev.etaSeconds,
-                }));
-              }
-            };
-
-            xhr.onload = () => {
-              if (xhr.status >= 200 && xhr.status < 300) {
-                completedCount++;
-                completedFiles.push({
-                  relativePath: meta.relativePath,
-                  fileName: meta.fileName,
-                  fileSize: meta.fileSize,
-                  mimeType: meta.mimeType,
-                  category: meta.category,
-                  isSensitive: meta.isSensitive,
-                  s3Key: meta.fileKey,
-                });
-
-                const filePercent = Math.round((completedCount / finalFilesToUpload.length) * 100);
-                const bytePercent = totalBytes > 0 ? Math.round((loadedBytes / totalBytes) * 100) : filePercent;
-                const currentPercent = Math.min(99, Math.max(filePercent, bytePercent));
-
-                setUploadStats((prev) => ({
-                  ...prev,
-                  uploadedFiles: completedCount,
-                  percent: Math.max(prev.percent, currentPercent),
-                  etaSeconds: completedCount === finalFilesToUpload.length ? 0 : prev.etaSeconds,
-                }));
-                resolve();
+      const executeTaskWithRetry = async (task: (typeof uploadTasks)[0], retries = 2) => {
+        let attempt = 0;
+        while (attempt <= retries) {
+          try {
+            await new Promise<void>((resolve, reject) => {
+              const formData = new FormData();
+              if (task.type === 'single') {
+                const f = task.files[0];
+                formData.append('file', f.item.file);
+                formData.append('fileKey', f.meta.fileKey);
               } else {
-
-
-                try {
-                  const errRes = JSON.parse(xhr.responseText);
-                  reject(new Error(errRes.error || `Upload failed for ${item.relativePath}`));
-                } catch {
-                  reject(new Error(`Upload failed for ${item.relativePath} (${xhr.status})`));
-                }
+                task.files.forEach((f) => {
+                  formData.append('files', f.item.file);
+                  formData.append('fileKeys', f.meta.fileKey);
+                });
               }
-            };
 
-            xhr.onerror = () => {
-              reject(new Error(`Network error uploading ${item.relativePath}`));
-            };
+              const xhr = new XMLHttpRequest();
+              xhr.open('POST', '/api/workspaces/upload-file');
+              xhr.timeout = 45000; // 45 seconds timeout
 
-            xhr.send(formData);
-          });
+              let prevFileLoaded = 0;
+
+              xhr.upload.onprogress = (evt) => {
+                if (evt.lengthComputable) {
+                  const delta = evt.loaded - prevFileLoaded;
+                  prevFileLoaded = evt.loaded;
+                  loadedBytes += delta;
+
+                  const now = performance.now();
+                  const timeDiff = (now - lastTime) / 1000;
+                  let speed = 0;
+                  if (timeDiff >= 0.25) {
+                    speed = (loadedBytes - lastLoaded) / timeDiff;
+                    lastLoaded = loadedBytes;
+                    lastTime = now;
+                  }
+
+                  // Progress is strictly driven by loadedBytes / totalBytes to prevent getting stuck at 99%
+                  const bytePercent = totalBytes > 0
+                    ? Math.min(95, Math.floor((loadedBytes / totalBytes) * 95))
+                    : Math.min(95, Math.floor((completedFilesCount / finalFilesToUpload.length) * 95));
+
+                  const remainingBytes = Math.max(0, totalBytes - loadedBytes);
+                  const currentEta = speed > 0 ? Math.ceil(remainingBytes / speed) : 0;
+
+                  setUploadStats((prev) => ({
+                    ...prev,
+                    stage: 'uploading',
+                    uploadedBytes: Math.min(totalBytes, loadedBytes),
+                    percent: Math.min(95, Math.max(prev.percent, bytePercent)),
+                    speedBps: speed > 0 ? speed : prev.speedBps,
+                    etaSeconds: currentEta > 0 ? currentEta : prev.etaSeconds,
+                  }));
+                }
+              };
+
+              xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                  const unaccounted = task.batchBytes - prevFileLoaded;
+                  if (unaccounted > 0) {
+                    loadedBytes += unaccounted;
+                  }
+                  completedFilesCount += task.files.length;
+
+                  task.files.forEach((f) => {
+                    completedFiles.push({
+                      relativePath: f.meta.relativePath,
+                      fileName: f.meta.fileName,
+                      fileSize: f.meta.fileSize,
+                      mimeType: f.meta.mimeType,
+                      category: f.meta.category,
+                      isSensitive: f.meta.isSensitive,
+                      s3Key: f.meta.fileKey,
+                    });
+                  });
+
+                  const currentPercent = totalBytes > 0
+                    ? Math.min(95, Math.floor((loadedBytes / totalBytes) * 95))
+                    : Math.min(95, Math.floor((completedFilesCount / finalFilesToUpload.length) * 95));
+
+                  setUploadStats((prev) => ({
+                    ...prev,
+                    stage: 'uploading',
+                    uploadedFiles: completedFilesCount,
+                    uploadedBytes: Math.min(totalBytes, loadedBytes),
+                    percent: Math.min(95, Math.max(prev.percent, currentPercent)),
+                  }));
+                  resolve();
+                } else {
+                  try {
+                    const errRes = JSON.parse(xhr.responseText);
+                    reject(new Error(errRes.error || `Upload failed with status ${xhr.status}`));
+                  } catch {
+                    reject(new Error(`Upload failed with status ${xhr.status}`));
+                  }
+                }
+              };
+
+              xhr.ontimeout = () => {
+                reject(new Error('Network timeout uploading workspace files.'));
+              };
+
+              xhr.onerror = () => {
+                reject(new Error('Network error uploading workspace files.'));
+              };
+
+              xhr.send(formData);
+            });
+            return; // Success
+          } catch (err: any) {
+            attempt++;
+            if (attempt > retries) {
+              throw err;
+            }
+            // Small backoff before retrying
+            await new Promise((r) => setTimeout(r, 600 * attempt));
+          }
         }
       };
 
+      const worker = async () => {
+        while (queue.length > 0) {
+          const task = queue.shift();
+          if (!task) break;
+
+          const displayFile = task.files[0]?.item.relativePath || 'uploading files...';
+          const fileInfo = task.files.length > 1
+            ? `${displayFile} (+${task.files.length - 1} files)`
+            : displayFile;
+
+          setUploadStats((prev) => ({
+            ...prev,
+            currentFile: fileInfo,
+          }));
+
+          await executeTaskWithRetry(task);
+        }
+      };
 
       // Launch worker pool
-      const workers = Array.from({ length: Math.min(CONCURRENCY, uploadQueue.length) }, () => worker());
+      const workers = Array.from({ length: CONCURRENCY }, () => worker());
       await Promise.all(workers);
 
-      // 3. Complete workspace registration
+      // 3. Stage 2: Processing & Verifying stage
       setUploadStats((prev) => ({
         ...prev,
-        percent: 100,
-        currentFile: 'Saving workspace metadata and static analysis...',
+        stage: 'processing',
+        uploadedBytes: totalBytes,
+        uploadedFiles: finalFilesToUpload.length,
+        percent: 98,
+        etaSeconds: 0,
+        currentFile: 'Verifying cloud storage persistence & saving metadata...',
       }));
 
       const completeRes = await fetch('/api/workspaces/complete', {
@@ -391,6 +503,14 @@ export default function CodeDropPage() {
       }
 
       const completeData = await completeRes.json();
+      setUploadStats((prev) => ({
+        ...prev,
+        stage: 'completed',
+        percent: 100,
+        currentFile: 'Verified & completed!',
+      }));
+
+      setCompletedWorkspace(completeData.workspace);
       setCompletedWorkspaceId(completeData.workspace.id);
       setPhase('completed');
       toast.success('Workspace uploaded successfully!');
@@ -762,6 +882,60 @@ export default function CodeDropPage() {
             Uploading Workspace
           </h2>
 
+          {/* Explicit 3-Stage Progress Breadcrumb */}
+          <div className="flex items-center justify-center gap-1.5 sm:gap-2 my-3 text-[11px] sm:text-xs font-semibold">
+            <span
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full border transition-all ${
+                uploadStats.stage === 'uploading'
+                  ? 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border-cyan-500/30 ring-2 ring-cyan-500/20'
+                  : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+              }`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  uploadStats.stage === 'uploading' ? 'bg-cyan-500 animate-pulse' : 'bg-emerald-500'
+                }`}
+              />
+              1. Uploading
+            </span>
+            <span className="text-neutral-400">→</span>
+            <span
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full border transition-all ${
+                uploadStats.stage === 'processing'
+                  ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 ring-2 ring-amber-500/20 animate-pulse'
+                  : uploadStats.stage === 'completed'
+                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                  : 'bg-neutral-100 dark:bg-neutral-800/60 text-neutral-400 border-transparent'
+              }`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  uploadStats.stage === 'processing'
+                    ? 'bg-amber-500'
+                    : uploadStats.stage === 'completed'
+                    ? 'bg-emerald-500'
+                    : 'bg-neutral-400'
+                }`}
+              />
+              2. Processing
+            </span>
+            <span className="text-neutral-400">→</span>
+            <span
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full border transition-all ${
+                uploadStats.stage === 'completed'
+                  ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 ring-2 ring-emerald-500/20'
+                  : 'bg-neutral-100 dark:bg-neutral-800/60 text-neutral-400 border-transparent'
+              }`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  uploadStats.stage === 'completed' ? 'bg-emerald-500' : 'bg-neutral-400'
+                }`}
+              />
+              3. Completed
+            </span>
+          </div>
+
           {/* Prominent Large Percentage Display */}
           <div className="my-5 flex items-baseline justify-center gap-1.5">
             <span className="text-6xl sm:text-7xl font-black text-neutral-900 dark:text-white font-mono tracking-tight">
@@ -871,6 +1045,14 @@ export default function CodeDropPage() {
             </Link>
 
             <button
+              onClick={() => setSendToPeopleOpen(true)}
+              className="px-6 py-2.5 text-sm font-semibold rounded-2xl bg-gradient-to-r from-cyan-600 via-teal-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white shadow-lg shadow-cyan-500/25 flex items-center justify-center gap-2 transition-all w-full sm:w-auto hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <Users className="w-4 h-4" />
+              <span>Send to People</span>
+            </button>
+
+            <button
               onClick={() => setSendModalOpen(true)}
               className="btn-secondary w-full sm:w-auto px-6 py-2.5 text-sm font-semibold"
             >
@@ -883,11 +1065,57 @@ export default function CodeDropPage() {
                 setPhase('idle');
                 setRawFiles([]);
                 setCompletedWorkspaceId(null);
+                setCompletedWorkspace(null);
+                setQuickShareEmail('');
               }}
               className="btn-secondary w-full sm:w-auto px-6 py-2.5 text-sm font-semibold"
             >
               Upload Another
             </button>
+          </div>
+
+          {/* Quick Send to People Section */}
+          <div className="mt-8 p-6 rounded-3xl bg-neutral-50/80 dark:bg-neutral-800/40 border border-neutral-200/80 dark:border-neutral-800 text-left">
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-neutral-900 dark:text-neutral-100">
+                    Send Workspace to People & Gmail
+                  </h3>
+                  <p className="text-xs text-neutral-500">
+                    Send this project folder to other people via their Gmail or directly in our application.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-2.5 mt-4">
+              <div className="relative w-full">
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                <input
+                  type="email"
+                  placeholder="Enter colleague's Gmail address..."
+                  value={quickShareEmail}
+                  onChange={(e) => setQuickShareEmail(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && quickShareEmail) {
+                      setSendToPeopleOpen(true);
+                    }
+                  }}
+                  className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl bg-white dark:bg-neutral-900 border border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-cyan-500 transition-colors"
+                />
+              </div>
+              <button
+                onClick={() => setSendToPeopleOpen(true)}
+                className="btn-primary w-full sm:w-auto px-5 py-2.5 text-xs font-semibold whitespace-nowrap flex items-center justify-center gap-2"
+              >
+                <Users className="w-4 h-4" />
+                <span>Send to People</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -965,6 +1193,16 @@ export default function CodeDropPage() {
             fileCount: uploadStats.totalFiles,
             totalBytes: uploadStats.totalBytes,
           }}
+        />
+      )}
+
+      {/* Send to People Modal */}
+      {completedWorkspace && (
+        <SendToPeopleModal
+          isOpen={sendToPeopleOpen}
+          onClose={() => setSendToPeopleOpen(false)}
+          workspace={completedWorkspace}
+          initialEmail={quickShareEmail}
         />
       )}
     </div>

@@ -12,6 +12,40 @@ export async function POST(request: Request) {
     }
 
     const formData = await request.formData();
+
+    // Check for batch upload
+    const batchFiles = formData.getAll('files') as File[];
+    const batchKeys = formData.getAll('fileKeys') as string[];
+
+    if (batchFiles.length > 0 && batchKeys.length > 0) {
+      if (batchFiles.length !== batchKeys.length) {
+        return NextResponse.json({ error: 'Mismatched batch files and keys' }, { status: 400 });
+      }
+
+      // Verify all keys belong to this user
+      for (const key of batchKeys) {
+        if (!key.startsWith(`users/${user.id}/`) && !key.includes(user.id)) {
+          return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+      }
+
+      // Store batch files in parallel
+      await Promise.all(
+        batchFiles.map(async (file, idx) => {
+          const arrayBuffer = await file.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          return putObjectSafe({
+            fileKey: batchKeys[idx],
+            buffer,
+            contentType: file.type || 'application/octet-stream',
+          });
+        })
+      );
+
+      return NextResponse.json({ success: true, count: batchFiles.length });
+    }
+
+    // Single file upload
     const file = formData.get('file') as File | null;
     const fileKey = formData.get('fileKey') as string | null;
 

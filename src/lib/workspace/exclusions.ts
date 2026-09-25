@@ -9,7 +9,11 @@ export interface ExclusionRule {
 }
 
 export const DEFAULT_EXCLUSION_RULES: ExclusionRule[] = [
+  { id: 'vaultdrop_storage', pattern: '.vaultdrop-storage', name: '.vaultdrop-storage/', category: 'VaultDrop Storage', reason: 'VaultDrop local storage and share cache', enabled: true, defaultExcluded: true },
+  { id: 'storage_dir', pattern: 'storage', name: 'storage/', category: 'VaultDrop Storage', reason: 'Internal storage cache', enabled: true, defaultExcluded: true },
+  { id: 'dot_storage', pattern: '.storage', name: '.storage/', category: 'Storage', reason: 'Storage directory', enabled: true, defaultExcluded: true },
   { id: 'node_modules', pattern: 'node_modules', name: 'node_modules/', category: 'Dependencies', reason: 'Dependencies (install locally)', enabled: true, defaultExcluded: true },
+  { id: 'vercel', pattern: '.vercel', name: '.vercel/', category: 'Build Output', reason: 'Vercel serverless build and cache', enabled: true, defaultExcluded: true },
   { id: 'next', pattern: '.next', name: '.next/', category: 'Build Output', reason: 'Next.js build output', enabled: true, defaultExcluded: true },
   { id: 'dist', pattern: 'dist', name: 'dist/', category: 'Build Output', reason: 'Production build output', enabled: true, defaultExcluded: true },
   { id: 'build', pattern: 'build', name: 'build/', category: 'Build Output', reason: 'Build output', enabled: true, defaultExcluded: true },
@@ -28,11 +32,24 @@ export const DEFAULT_EXCLUSION_RULES: ExclusionRule[] = [
   { id: 'pycache', pattern: '__pycache__', name: '__pycache__/', category: 'Cache', reason: 'Python bytecode cache', enabled: true, defaultExcluded: true },
   { id: 'venv', pattern: '.venv', name: '.venv/', category: 'Environment', reason: 'Python virtual environment', enabled: true, defaultExcluded: true },
   { id: 'venv2', pattern: 'venv', name: 'venv/', category: 'Environment', reason: 'Python virtual environment', enabled: true, defaultExcluded: true },
+  { id: 'pnpm-store', pattern: '.pnpm-store', name: '.pnpm-store/', category: 'Dependencies', reason: 'pnpm package cache', enabled: true, defaultExcluded: true },
+  { id: 'logs', pattern: 'logs', name: 'logs/', category: 'Logs', reason: 'Log files directory', enabled: true, defaultExcluded: true },
+  { id: 'temp', pattern: 'temp', name: 'temp/', category: 'Cache', reason: 'Temporary workspace cache', enabled: true, defaultExcluded: true },
+  { id: 'tmp', pattern: 'tmp', name: 'tmp/', category: 'Cache', reason: 'Temporary system files', enabled: true, defaultExcluded: true },
+  { id: 'pytest_cache', pattern: '.pytest_cache', name: '.pytest_cache/', category: 'Testing', reason: 'Pytest cache directory', enabled: true, defaultExcluded: true },
   { id: 'gradle', pattern: '.gradle', name: '.gradle/', category: 'Build Output', reason: 'Gradle build cache', enabled: true, defaultExcluded: true },
   { id: 'idea', pattern: '.idea', name: '.idea/', category: 'IDE', reason: 'IDE metadata', enabled: true, defaultExcluded: true },
   { id: 'vscode', pattern: '.vscode', name: '.vscode/', category: 'IDE', reason: 'VS Code local settings', enabled: true, defaultExcluded: true },
   { id: 'ds_store', pattern: '.DS_Store', name: '.DS_Store', category: 'OS', reason: 'macOS system file', enabled: true, defaultExcluded: true },
   { id: 'thumbs_db', pattern: 'Thumbs.db', name: 'Thumbs.db', category: 'OS', reason: 'Windows thumbnail cache', enabled: true, defaultExcluded: true },
+  { id: 'log_files', pattern: '*.log', name: '*.log', category: 'Logs', reason: 'Application execution log files', enabled: true, defaultExcluded: true },
+  { id: 'tsbuildinfo', pattern: '*.tsbuildinfo', name: '*.tsbuildinfo', category: 'Build Output', reason: 'TypeScript incremental build info', enabled: true, defaultExcluded: true },
+  { id: 'zip_files', pattern: '*.zip', name: '*.zip', category: 'Archives', reason: 'Compressed zip archive', enabled: true, defaultExcluded: true },
+  { id: 'tar_files', pattern: '*.tar', name: '*.tar', category: 'Archives', reason: 'Tar archive file', enabled: true, defaultExcluded: true },
+  { id: 'gz_files', pattern: '*.gz', name: '*.gz', category: 'Archives', reason: 'Gzip compressed archive', enabled: true, defaultExcluded: true },
+  { id: 'sqlite_files', pattern: '*.sqlite', name: '*.sqlite', category: 'Database', reason: 'SQLite database file', enabled: true, defaultExcluded: true },
+  { id: 'db_files', pattern: '*.db', name: '*.db', category: 'Database', reason: 'Local database file', enabled: true, defaultExcluded: true },
+  { id: 'mp4_files', pattern: '*.mp4', name: '*.mp4', category: 'Media', reason: 'Large video media file', enabled: true, defaultExcluded: true },
 ];
 
 export interface FileScanItem {
@@ -89,15 +106,29 @@ export function analyzeWorkspaceFiles(
 
     // Check against active exclusion rules
     let matchedRule: ExclusionRule | null = null;
+    const fileName = parts[parts.length - 1] || '';
+    const normalizedLower = normalized.toLowerCase();
+    const fileNameLower = fileName.toLowerCase();
+
     for (const rule of enabledRules) {
-      const isSegmentMatch = parts.some((p: string) => p === rule.pattern);
-      if (
-        isSegmentMatch ||
-        normalized.includes(`/${rule.pattern}/`) ||
-        normalized.startsWith(`${rule.pattern}/`)
-      ) {
-        matchedRule = rule;
-        break;
+      const patternLower = rule.pattern.toLowerCase();
+      if (patternLower.startsWith('*.')) {
+        const ext = patternLower.slice(1);
+        if (fileNameLower.endsWith(ext) || normalizedLower.endsWith(ext)) {
+          matchedRule = rule;
+          break;
+        }
+      } else {
+        const isSegmentMatch = parts.some((p: string) => p.toLowerCase() === patternLower);
+        if (
+          isSegmentMatch ||
+          normalizedLower.includes(`/${patternLower}/`) ||
+          normalizedLower.startsWith(`${patternLower}/`) ||
+          fileNameLower === patternLower
+        ) {
+          matchedRule = rule;
+          break;
+        }
       }
     }
 

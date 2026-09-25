@@ -8,6 +8,7 @@ import {
   FolderCode,
   Download,
   Send,
+  Users,
   Trash2,
   Calendar,
   Layers,
@@ -27,11 +28,13 @@ import {
 } from 'lucide-react';
 import { getCategoryBadge, FileCategory } from '@/lib/workspace/categories';
 import SendToDeviceModal from '@/components/send-to-device-modal';
+import SendToPeopleModal from '@/components/send-to-people-modal';
 import { toast } from 'sonner';
 
 interface WorkspaceDetails {
   id: string;
   name: string;
+  shareCode?: string;
   description?: string;
   fileCount: number;
   totalBytes: number;
@@ -80,6 +83,7 @@ export default function WorkspaceDetailPage({ params }: { params: { id: string }
 
   // Send to device modal
   const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [sendToPeopleOpen, setSendToPeopleOpen] = useState(false);
 
   const formatBytes = (bytes: number) => {
     if (!bytes || bytes === 0) return '0 B';
@@ -221,6 +225,14 @@ export default function WorkspaceDetailPage({ params }: { params: { id: string }
             >
               <Camera className="w-4 h-4 text-indigo-500" />
               <span>Create Snapshot</span>
+            </button>
+
+            <button
+              onClick={() => setSendToPeopleOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-xs font-semibold transition-all text-cyan-700 dark:text-cyan-300 shadow-sm"
+            >
+              <Users className="w-4 h-4 text-cyan-500" />
+              <span>Send to People</span>
             </button>
 
             <button
@@ -538,6 +550,21 @@ export default function WorkspaceDetailPage({ params }: { params: { id: string }
             projectName: workspace.name,
             fileCount: workspace.fileCount,
             totalBytes: workspace.totalBytes,
+          }}
+        />
+      )}
+
+      {/* Send to People Modal */}
+      {workspace && (
+        <SendToPeopleModal
+          isOpen={sendToPeopleOpen}
+          onClose={() => setSendToPeopleOpen(false)}
+          workspace={{
+            id: workspace.id,
+            name: workspace.name,
+            fileCount: workspace.fileCount,
+            totalBytes: workspace.totalBytes,
+            shareCode: workspace.shareCode || '',
           }}
         />
       )}
