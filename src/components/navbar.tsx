@@ -39,22 +39,22 @@ export function Navbar() {
 
   return (
     <header
-      className="sticky top-0 z-50 w-full bg-white/90 dark:bg-black/90 backdrop-blur-2xl border-b border-black/[0.06] dark:border-white/[0.08] transition-colors"
+      className="sticky top-0 z-50 w-full bg-white/85 dark:bg-black/90 backdrop-blur-2xl border-b border-slate-200/90 dark:border-white/[0.08] transition-colors shadow-sm dark:shadow-none"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Brand Logo */}
           <Link href="/" className="flex items-center gap-2.5 group flex-shrink-0">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-gradient-to-br from-cyan-500 to-violet-600 text-white border border-cyan-400/20 shadow-sm group-hover:scale-105 transition-transform duration-200">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-gradient-to-br from-cyan-500 to-violet-600 text-white border border-cyan-400/30 shadow-sm group-hover:scale-105 transition-transform duration-200">
               <Shield className="w-4 h-4" strokeWidth={2.5} />
             </div>
-            <span className="text-base font-bold tracking-tight text-neutral-900 dark:text-white">
-              VAULT<span className="bg-gradient-to-r from-cyan-500 to-violet-500 bg-clip-text text-transparent font-extrabold ml-0.5">DROP</span>
+            <span className="text-base font-bold tracking-tight text-slate-900 dark:text-white">
+              VAULT<span className="bg-gradient-to-r from-cyan-500 to-violet-600 bg-clip-text text-transparent font-extrabold ml-0.5">DROP</span>
             </span>
           </Link>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-1 p-1 rounded-xl bg-black/[0.03] dark:bg-white/[0.04] border border-black/[0.04] dark:border-white/[0.06]">
+          <nav className="hidden lg:flex items-center gap-1 p-1 rounded-xl bg-slate-100/90 dark:bg-white/[0.04] border border-slate-200/90 dark:border-white/[0.06]">
             {mainNavLinks.map(({ href, label, icon: Icon, color }) => {
               const active = pathname === href || pathname.startsWith(href + '/');
               return (
@@ -63,11 +63,11 @@ export function Navbar() {
                   href={href}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 select-none ${
                     active
-                      ? 'text-neutral-950 dark:text-white bg-white dark:bg-white/[0.12] shadow-sm border border-black/[0.04] dark:border-white/10'
-                      : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'
+                      ? 'text-indigo-600 dark:text-white bg-white dark:bg-white/[0.12] shadow-sm border border-slate-200/90 dark:border-white/10'
+                      : 'text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/[0.06]'
                   }`}
                 >
-                  <Icon className={`w-3.5 h-3.5 ${active ? color : 'text-neutral-400'}`} />
+                  <Icon className={`w-3.5 h-3.5 ${active ? color : 'text-slate-400 dark:text-neutral-400'}`} />
                   <span>{label}</span>
                 </Link>
               );
@@ -78,8 +78,8 @@ export function Navbar() {
                 href="/dashboard"
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 select-none ${
                   pathname.startsWith('/dashboard')
-                    ? 'text-neutral-950 dark:text-white bg-white dark:bg-white/[0.12] shadow-sm border border-black/[0.04] dark:border-white/10'
-                    : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-950 dark:hover:text-white hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'
+                    ? 'text-indigo-600 dark:text-white bg-white dark:bg-white/[0.12] shadow-sm border border-slate-200/90 dark:border-white/10'
+                    : 'text-slate-600 dark:text-neutral-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/[0.06]'
                 }`}
               >
                 <LayoutDashboard className={`w-3.5 h-3.5 ${pathname.startsWith('/dashboard') ? 'text-amber-500' : ''}`} />

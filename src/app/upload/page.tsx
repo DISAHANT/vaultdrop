@@ -759,20 +759,20 @@ export default function UploadPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-1.5 flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-cyan-400" /> Expiration
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-neutral-400 mb-1.5 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-indigo-500 dark:text-cyan-400" /> Expiration
                 </label>
                 <select value={expiresIn} onChange={e => setExpiresIn(Number(e.target.value))} className="input cursor-pointer">
-                  {CONFIG.EXPIRATION_OPTIONS.map(o => <option key={o.value} value={o.value} className="bg-neutral-950 text-white">{o.label}</option>)}
+                  {CONFIG.EXPIRATION_OPTIONS.map(o => <option key={o.value} value={o.value} className="bg-white text-slate-900 dark:bg-neutral-950 dark:text-white">{o.label}</option>)}
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400 mb-1.5 flex items-center gap-1.5">
-                  <Download className="w-3.5 h-3.5 text-cyan-400" /> Download Limit
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-neutral-400 mb-1.5 flex items-center gap-1.5">
+                  <Download className="w-3.5 h-3.5 text-indigo-500 dark:text-cyan-400" /> Download Limit
                 </label>
                 <select value={maxDownloads} onChange={e => setMaxDownloads(Number(e.target.value))} className="input cursor-pointer">
-                  {CONFIG.DOWNLOAD_LIMIT_OPTIONS.map(o => <option key={o.value} value={o.value} className="bg-neutral-950 text-white">{o.label}</option>)}
+                  {CONFIG.DOWNLOAD_LIMIT_OPTIONS.map(o => <option key={o.value} value={o.value} className="bg-white text-slate-900 dark:bg-neutral-950 dark:text-white">{o.label}</option>)}
                 </select>
               </div>
             </div>
