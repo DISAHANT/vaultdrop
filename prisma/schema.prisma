@@ -296,3 +296,16 @@ model SyncDevice {
   @@index([sessionId])
   @@map("sync_devices")
 }
+
+model UploadChunk {
+  id         String   @id @default(cuid())
+  uploadId   String   @map("upload_id") @db.VarChar(100)
+  fileIndex  Int      @map("file_index")
+  chunkIndex Int      @map("chunk_index")
+  chunkData  Bytes    @map("chunk_data") @db.LongBlob
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@unique([uploadId, fileIndex, chunkIndex])
+  @@index([uploadId])
+  @@map("upload_chunks")
+}

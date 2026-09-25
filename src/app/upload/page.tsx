@@ -283,6 +283,166 @@ export default function UploadPage() {
       });
     };
 
+    const uploadViaChunkedPipeline = async (startSpeed: number = 0) => {
+      if (totalBytes <= 3.5 * 1024 * 1024) {
+        return uploadViaServer(startSpeed);
+      }
+
+      setUploadProgress(prev => ({
+        loaded: prev?.loaded || 0,
+        total: totalBytes,
+        percent: 5,
+        speed: 'Connecting...',
+        speedBytes: startSpeed,
+        eta: '',
+        phase: 'preparing',
+        fileProgress: initialFileProgress,
+      }));
+
+      const initRes = await fetch('/api/shares/chunk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'init',
+          title,
+          description,
+          password: password || undefined,
+          expiresInSeconds: expiresIn,
+          maxDownloads,
+          totalFiles: files.length,
+          totalSize: totalBytes,
+        }),
+      });
+
+      if (!initRes.ok) {
+        const err = await initRes.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to initialize upload session');
+      }
+
+      const { uploadId, shareId, shareCode } = await initRes.json();
+      const CHUNK_SIZE = 3 * 1024 * 1024;
+      let overallLoaded = 0;
+      let lastTime = performance.now();
+      let lastLoaded = 0;
+      let speedEma = startSpeed;
+      const curFileProgress = { ...initialFileProgress };
+
+      for (let fIdx = 0; fIdx < files.length; fIdx++) {
+        const staged = files[fIdx];
+        const f = staged.file;
+        const totalChunks = Math.max(1, Math.ceil(f.size / CHUNK_SIZE));
+        let fileLoaded = 0;
+
+        for (let cIdx = 0; cIdx < totalChunks; cIdx++) {
+          const start = cIdx * CHUNK_SIZE;
+          const end = Math.min(f.size, start + CHUNK_SIZE);
+          const chunkBlob = f.slice(start, end);
+
+          const chunkFormData = new FormData();
+          chunkFormData.append('uploadId', uploadId);
+          chunkFormData.append('shareId', shareId);
+          chunkFormData.append('fileIndex', fIdx.toString());
+          chunkFormData.append('chunkIndex', cIdx.toString());
+          chunkFormData.append('totalChunks', totalChunks.toString());
+          chunkFormData.append('chunk', chunkBlob, f.name);
+
+          const chunkRes = await fetch('/api/shares/chunk', {
+            method: 'POST',
+            body: chunkFormData,
+          });
+
+          if (!chunkRes.ok) {
+            const err = await chunkRes.json().catch(() => ({}));
+            throw new Error(err.error || `Failed to upload chunk ${cIdx + 1}/${totalChunks}`);
+          }
+
+          const chunkBytes = end - start;
+          fileLoaded += chunkBytes;
+          overallLoaded += chunkBytes;
+
+          const now = performance.now();
+          const elapsed = (now - lastTime) / 1000;
+          if (elapsed >= 0.15 || overallLoaded >= totalBytes) {
+            const delta = overallLoaded - lastLoaded;
+            const instantSpeed = elapsed > 0 ? delta / elapsed : 0;
+            speedEma = speedEma === 0 ? instantSpeed : speedEma * 0.7 + instantSpeed * 0.3;
+            lastTime = now;
+            lastLoaded = overallLoaded;
+          }
+
+          const filePct = f.size > 0 ? Math.min(100, Math.round((fileLoaded / f.size) * 100)) : 100;
+          curFileProgress[staged.id] = filePct;
+          const overallPct = totalBytes > 0 ? Math.min(96, Math.round((overallLoaded / totalBytes) * 95)) : 95;
+          const rem = Math.max(0, totalBytes - overallLoaded);
+
+          setUploadProgress({
+            loaded: overallLoaded,
+            total: totalBytes,
+            percent: overallPct,
+            speed: formatSpeed(speedEma),
+            speedBytes: speedEma,
+            eta: formatETA(rem, speedEma),
+            phase: 'uploading',
+            fileProgress: { ...curFileProgress },
+          });
+        }
+
+        const compFileRes = await fetch('/api/shares/chunk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'complete-file',
+            uploadId,
+            shareId,
+            fileIndex: fIdx,
+            originalFilename: f.name,
+            mimeType: f.type || 'application/octet-stream',
+            fileSize: f.size,
+          }),
+        });
+
+        if (!compFileRes.ok) {
+          const err = await compFileRes.json().catch(() => ({}));
+          throw new Error(err.error || `Failed to assemble file ${f.name}`);
+        }
+      }
+
+      setUploadProgress(prev => prev ? {
+        ...prev,
+        percent: 98,
+        phase: 'finalizing',
+        eta: 'Finalizing...',
+      } : null);
+
+      const compShareRes = await fetch('/api/shares/chunk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'complete-share',
+          uploadId,
+          shareId,
+        }),
+      });
+
+      if (!compShareRes.ok) {
+        const err = await compShareRes.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to finalize share');
+      }
+
+      setUploadProgress(prev => prev ? {
+        ...prev,
+        loaded: totalBytes,
+        percent: 100,
+        speed: formatSpeed(speedEma),
+        eta: 'Complete',
+        phase: 'completed',
+        fileProgress: {},
+      } : null);
+
+      toast.success('Files uploaded successfully!');
+      setTimeout(() => router.push(`/upload/success/${shareCode}`), 600);
+    };
+
     try {
       let directS3Success = false;
       let lastSpeedEma = 0;
@@ -439,7 +599,7 @@ export default function UploadPage() {
       }
 
       if (!directS3Success) {
-        await uploadViaServer(lastSpeedEma);
+        await uploadViaChunkedPipeline(lastSpeedEma);
       }
     } catch (error: any) {
       if (error?.name === 'AbortError') return;

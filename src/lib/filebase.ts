@@ -45,7 +45,7 @@ let filebaseHealthCache: { isHealthy: boolean; checkedAt: number } | null = null
 
 /**
  * Checks whether Filebase credentials and bucket are configured and accessible.
- * Result is cached for 2 minutes to avoid redundant network calls.
+ * Result is cached for 10 minutes to avoid redundant network calls.
  */
 export async function isFilebaseHealthy(): Promise<boolean> {
   const key = process.env.FILEBASE_KEY;
@@ -57,14 +57,17 @@ export async function isFilebaseHealthy(): Promise<boolean> {
   }
 
   const now = Date.now();
-  if (filebaseHealthCache && now - filebaseHealthCache.checkedAt < 120_000) {
+  if (filebaseHealthCache && now - filebaseHealthCache.checkedAt < 600_000) {
     return filebaseHealthCache.isHealthy;
   }
 
   try {
     const s3 = getFilebaseClient();
     const { HeadBucketCommand } = await import('@aws-sdk/client-s3');
-    await s3.send(new HeadBucketCommand({ Bucket: bucket }));
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 1500);
+    await s3.send(new HeadBucketCommand({ Bucket: bucket }), { abortSignal: controller.signal });
+    clearTimeout(timeout);
     filebaseHealthCache = { isHealthy: true, checkedAt: now };
     return true;
   } catch {
@@ -84,6 +87,7 @@ export function getFilebaseClient(): S3Client {
     s3ClientInstance = new S3Client({
       endpoint: 'https://s3.filebase.io',
       region: 'auto',
+      maxAttempts: 1,
       credentials: {
         accessKeyId: key,
         secretAccessKey: secret,
