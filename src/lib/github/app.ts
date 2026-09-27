@@ -76,7 +76,7 @@ export function generateAppJwt(): string {
   const now = Math.floor(Date.now() / 1000);
   const payload = {
     iat: now - 60, // 60 seconds clock drift leeway
-    exp: now + 10 * 60, // 10 minutes validity
+    exp: now + 9 * 60, // 9 minutes from now (10 minutes total from iat)
     iss: appId,
   };
 
