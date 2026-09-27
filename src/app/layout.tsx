@@ -5,14 +5,21 @@ import { AuthProvider } from '@/components/auth-provider';
 import { ToastProvider } from '@/components/toast-provider';
 import { Navbar } from '@/components/navbar';
 
+import { VaultDropLogo } from '@/components/vaultdrop-logo';
+
 export const metadata: Metadata = {
-  title: 'VaultDrop — Secure File Sharing',
-  description: 'Share files quickly and securely. Upload files, get a short code, share the code, download anywhere.',
-  keywords: ['file sharing', 'secure', 'upload', 'download', 'share code'],
+  title: 'VaultDrop — Cross-Device Workspace & Secure File Bridge',
+  description: 'Ultra-fast, zero-leak file and workspace sync across all your devices and GitHub repositories with cryptographic integrity.',
+  keywords: ['file sharing', 'secure', 'workspace sync', 'github integration', 'cross-device', 'encrypted storage'],
+  icons: {
+    icon: '/logo.png',
+    apple: '/logo.png',
+  },
   openGraph: {
-    title: 'VaultDrop — Secure File Sharing',
-    description: 'Share files quickly and securely with short share codes.',
+    title: 'VaultDrop — Cross-Device Workspace & Secure File Bridge',
+    description: 'Instant, secure workspace and file synchronization across personal devices and GitHub.',
     type: 'website',
+    images: ['/logo.png'],
   },
   robots: { index: true, follow: true },
 };
@@ -22,14 +29,27 @@ import { IncomingTransferListener } from '@/components/incoming-transfer-listene
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="relative overflow-x-hidden min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] selection:bg-indigo-500/20 selection:text-slate-900 dark:selection:bg-neutral-800 dark:selection:text-white transition-colors duration-200">
+      <body className="relative overflow-x-hidden min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] selection:bg-sky-500/20 selection:text-slate-900 dark:selection:bg-sky-500/30 dark:selection:text-white transition-colors duration-200">
         <ThemeProvider>
           <AuthProvider>
             <div className="min-h-screen flex flex-col">
               <Navbar />
               <main className="flex-1">{children}</main>
-              <footer className="py-6 text-center text-xs tracking-wider uppercase text-slate-500 dark:text-neutral-500 border-t border-slate-200/90 dark:border-white/[0.06] bg-white/70 dark:bg-black/40 backdrop-blur-md">
-                <p>VaultDrop — Cross-Device Workspace & File Bridge</p>
+              <footer className="py-8 px-4 sm:px-6 border-t border-neutral-200/80 dark:border-white/[0.08] bg-white/70 dark:bg-[#07090e]/85 backdrop-blur-xl">
+                <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-neutral-500 dark:text-neutral-400">
+                  <div className="flex items-center gap-3">
+                    <VaultDropLogo size="sm" showText={true} withGlow={false} />
+                    <span className="hidden sm:inline text-neutral-300 dark:text-neutral-700">|</span>
+                    <span className="hidden sm:inline">Cross-Device Workspace & File Bridge</span>
+                  </div>
+                  <div className="flex items-center gap-4 text-[11px] font-mono">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Encrypted Cloud Active
+                    </span>
+                    <span>v2.0.0</span>
+                  </div>
+                </div>
               </footer>
             </div>
             <IncomingTransferListener />

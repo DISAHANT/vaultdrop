@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { LogIn, Loader2, Shield } from 'lucide-react';
+import { LogIn, Loader2 } from 'lucide-react';
+import { VaultDropLogo } from '@/components/vaultdrop-logo';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -36,11 +37,15 @@ export default function LoginPage() {
   return (
     <div className="max-w-sm mx-auto px-4 py-16 md:py-24 animate-fade-up">
       <div className="text-center mb-8">
-        <div className="w-12 h-12 rounded-2xl mx-auto mb-4 flex items-center justify-center bg-neutral-900 dark:bg-white text-white dark:text-neutral-950 border border-neutral-700/60 dark:border-white/20 shadow-sm">
-          <Shield className="w-6 h-6" />
+        <div className="mb-4 flex justify-center">
+          <VaultDropLogo size="lg" showText={false} withGlow={true} />
         </div>
-        <h1 className="text-2xl font-bold mb-1">Welcome to VaultDrop</h1>
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">Sign in to manage devices, workspaces, and files</p>
+        <h1 className="text-2xl font-extrabold mb-1 tracking-tight text-neutral-900 dark:text-white">
+          Welcome to <span className="bg-gradient-to-r from-sky-400 to-indigo-400 bg-clip-text text-transparent">VaultDrop</span>
+        </h1>
+        <p className="text-xs text-neutral-500 dark:text-neutral-400">
+          Sign in to manage devices, workspaces, and files
+        </p>
       </div>
 
       <div className="glass-card p-6 space-y-5">
