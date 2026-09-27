@@ -99,7 +99,7 @@ export const SAFETY_IGNORE_RULES: SafetyRule[] = [
   { pattern: 'coverage', category: 'CACHE', name: 'coverage/', reason: 'Test coverage reports', isFolder: true },
 
   // Environment & Secrets
-  { pattern: /^\.env(\.[a-zA-Z0-9_\-]+)?$/i, category: 'ENVIRONMENT', name: '.env files', reason: 'Environment configuration file containing potential secrets' },
+  { pattern: /^\.env(\.(?!example|sample|template)[a-zA-Z0-9_\-]+)?$/i, category: 'ENVIRONMENT', name: '.env files', reason: 'Environment configuration file containing potential secrets' },
   { pattern: /\.(pem|key|pkcs8|p12|pfx|jks|keystore)$/i, category: 'SECRET', name: 'Private Key / Keystore', reason: 'Cryptographic private key or certificate' },
   { pattern: /(id_rsa|id_ed25519|id_ecdsa)$/i, category: 'SECRET', name: 'SSH Private Key', reason: 'SSH private identification key' },
   { pattern: /(credentials\.json|service-account\.json|gcloud-credentials\.json|aws_credentials|client_secret.*\.json)$/i, category: 'SECRET', name: 'Cloud Credentials', reason: 'Service account or cloud credential file' },

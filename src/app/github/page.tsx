@@ -169,9 +169,10 @@ export default function GitHubDashboardPage() {
     }
   }, []);
 
-  const fetchWorkspaces = useCallback(async () => {
+  const fetchWorkspaces = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = !!opts?.silent;
     try {
-      setLoadingWorkspaces(true);
+      if (!silent) setLoadingWorkspaces(true);
       const res = await fetch('/api/workspaces');
       if (res.ok) {
         const data = await res.json();
@@ -202,13 +203,14 @@ export default function GitHubDashboardPage() {
     } catch (err) {
       console.error('Fetch workspaces error:', err);
     } finally {
-      setLoadingWorkspaces(false);
+      if (!silent) setLoadingWorkspaces(false);
     }
   }, []);
 
-  const fetchOperations = useCallback(async () => {
+  const fetchOperations = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = !!opts?.silent;
     try {
-      setLoadingOperations(true);
+      if (!silent) setLoadingOperations(true);
       const res = await fetch('/api/github/operations?limit=30');
       if (res.ok) {
         const data = await res.json();
@@ -217,7 +219,7 @@ export default function GitHubDashboardPage() {
     } catch (err) {
       console.error('Fetch operations error:', err);
     } finally {
-      setLoadingOperations(false);
+      if (!silent) setLoadingOperations(false);
     }
   }, []);
 
@@ -931,7 +933,7 @@ export default function GitHubDashboardPage() {
               </p>
             </div>
             <button
-              onClick={fetchOperations}
+              onClick={() => fetchOperations()}
               disabled={loadingOperations}
               className="p-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-500 hover:text-neutral-800 transition-colors"
             >
@@ -1436,8 +1438,8 @@ export default function GitHubDashboardPage() {
           workspaceName={activeWorkspaceForCommit.name}
           connectedRepo={activeWorkspaceForCommit.connectedRepo}
           onCommitSuccess={() => {
-            fetchWorkspaces();
-            fetchOperations();
+            fetchWorkspaces({ silent: true });
+            fetchOperations({ silent: true });
           }}
         />
       )}

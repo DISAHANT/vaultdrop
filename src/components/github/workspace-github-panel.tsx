@@ -78,9 +78,9 @@ export function WorkspaceGitHubPanel({ workspaceId, workspaceName }: WorkspaceGi
     return new Date(dateStr).toLocaleDateString();
   };
 
-  const fetchStatus = React.useCallback(async () => {
+  const fetchStatus = React.useCallback(async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       // Check GitHub account status
       const statusRes = await fetch('/api/github/status');
       const statusData = await statusRes.json();
@@ -103,7 +103,7 @@ export function WorkspaceGitHubPanel({ workspaceId, workspaceName }: WorkspaceGi
     } catch (err) {
       console.error('Error fetching workspace GitHub status:', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [workspaceId]);
 
@@ -526,7 +526,7 @@ export function WorkspaceGitHubPanel({ workspaceId, workspaceName }: WorkspaceGi
           ...connectedRepo,
           defaultBranch: selectedBranch,
         }}
-        onCommitSuccess={fetchStatus}
+        onCommitSuccess={() => fetchStatus(true)}
       />
 
       {/* Create Branch Modal */}

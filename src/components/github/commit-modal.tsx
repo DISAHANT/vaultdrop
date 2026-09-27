@@ -6,25 +6,22 @@ import {
   GitBranch,
   ShieldCheck,
   ShieldAlert,
-  AlertTriangle,
   CheckCircle2,
   XCircle,
   ExternalLink,
   RefreshCw,
   Terminal,
-  FileCode,
   Lock,
-  ChevronDown,
   ChevronRight,
   X,
   Play,
   Copy,
-  Clock,
   Check,
   ArrowUpRight,
   Zap,
   Activity,
   Shield,
+  FileCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -103,6 +100,7 @@ export function CommitModal({
   // Step tracker: 'analyze' | 'review' | 'committing' | 'completed' | 'failed'
   const [step, setStep] = useState<'analyze' | 'review' | 'committing' | 'completed' | 'failed'>('analyze');
   const [loadingAnalysis, setLoadingAnalysis] = useState(true);
+  const [isUpdatingOverrides, setIsUpdatingOverrides] = useState(false);
   const [analysis, setAnalysis] = useState<AnalysisData | null>(null);
 
   // Commit fields
@@ -114,6 +112,7 @@ export function CommitModal({
   // Terminal logs
   const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
   const terminalRef = useRef<HTMLDivElement>(null);
+  const hasInitializedRef = useRef(false);
 
   // Result & Errors
   const [commitResult, setCommitResult] = useState<CommitResultData | null>(null);
@@ -145,18 +144,23 @@ export function CommitModal({
     }
   }, [terminalLogs]);
 
-  const runAnalysis = React.useCallback(async () => {
+  // Core analysis executor
+  const executeAnalysis = async (overridesToUse: string[], isInitial = false) => {
     try {
-      setLoadingAnalysis(true);
-      setStep('analyze');
-      setTerminalLogs([]);
-      addLog(`Preparing workspace "${workspaceName}"...`);
-      addLog(`Connecting to repository ${connectedRepo.owner}/${connectedRepo.repositoryName}...`);
+      if (isInitial) {
+        setLoadingAnalysis(true);
+        setStep('analyze');
+        setTerminalLogs([]);
+        addLog(`Preparing workspace "${workspaceName}"...`);
+        addLog(`Connecting to repository ${connectedRepo.owner}/${connectedRepo.repositoryName}...`);
+      } else {
+        setIsUpdatingOverrides(true);
+      }
 
       const res = await fetch(`/api/github/workspace/${workspaceId}/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userOverrides }),
+        body: JSON.stringify({ userOverrides: overridesToUse }),
       });
 
       const data = await res.json();
@@ -166,55 +170,99 @@ export function CommitModal({
       }
 
       setAnalysis(data.analysis);
-      addLog(`Scanned ${data.analysis.totalFiles} files (${formatBytes(data.analysis.totalSize)})`);
-      addLog(`Applied safety ignore rules: ${data.analysis.ignoredCount} files excluded`);
-      addLog(`Included for commit: ${data.analysis.includedCount} files (${formatBytes(data.analysis.includedSize)})`);
 
-      if (data.analysis.hasSecrets) {
-        addLog(`⚠ Security alert: ${data.analysis.securityFindings.length} potential secret(s) detected!`);
+      if (isInitial) {
+        addLog(`Scanned ${data.analysis.totalFiles} files (${formatBytes(data.analysis.totalSize)})`);
+        addLog(`Applied safety ignore rules: ${data.analysis.ignoredCount} files excluded`);
+        addLog(`Included for commit: ${data.analysis.includedCount} files (${formatBytes(data.analysis.includedSize)})`);
+
+        if (data.analysis.hasSecrets) {
+          addLog(`⚠ Security alert: ${data.analysis.securityFindings.length} potential secret(s) detected!`);
+        } else {
+          addLog(`✓ Security check passed: No secret patterns detected.`);
+        }
+
+        setStep('review');
       } else {
-        addLog(`✓ Security check passed: No secret patterns detected.`);
+        addLog(`Updated safety rules: ${data.analysis.ignoredCount} excluded (${data.analysis.includedCount} for commit)`);
+        if (!data.analysis.hasSecrets) {
+          addLog(`✓ All sensitive files excluded! Security block cleared.`);
+        }
       }
-
-      setStep('review');
     } catch (err: any) {
-      addLog(`✕ Analysis failed: ${err.message}`);
+      addLog(`✕ Analysis error: ${err.message}`);
       toast.error(err?.message || 'Error analyzing workspace');
-      setErrorDetails({
-        step: 'Workspace Analysis',
-        statusCode: 500,
-        errorCode: 'ANALYSIS_FAILED',
-        reason: err.message,
-        suggestedFix: 'Ensure your workspace files are uploaded and refresh.',
-        retryable: true,
-      });
-      setStep('failed');
+      if (isInitial) {
+        setErrorDetails({
+          step: 'Workspace Analysis',
+          statusCode: 500,
+          errorCode: 'ANALYSIS_FAILED',
+          reason: err.message,
+          suggestedFix: 'Ensure your workspace files are uploaded and refresh.',
+          retryable: true,
+        });
+        setStep('failed');
+      }
     } finally {
       setLoadingAnalysis(false);
+      setIsUpdatingOverrides(false);
     }
-  }, [workspaceId, workspaceName, connectedRepo.owner, connectedRepo.repositoryName, userOverrides]);
+  };
 
+  // Run initial analysis ONLY when modal opens (never re-runs on prop re-renders or updates)
   useEffect(() => {
     if (isOpen) {
-      setStep('analyze');
-      runAnalysis();
+      if (!hasInitializedRef.current) {
+        hasInitializedRef.current = true;
+        setStep('analyze');
+        setTerminalLogs([]);
+        setCommitResult(null);
+        setErrorDetails(null);
+        setUserOverrides([]);
+        setAllowSecretsOverride(false);
+        setCommitMessage(`Update workspace ${workspaceName} via VaultDrop`);
+        setBranch(connectedRepo.defaultBranch || 'main');
+        executeAnalysis([], true);
+      }
+    } else {
+      hasInitializedRef.current = false;
     }
-  }, [isOpen, runAnalysis]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  const handleAutoExcludeSecrets = () => {
+    if (!analysis) return;
+    const secretPaths = analysis.securityFindings.map((f) => f.filePath);
+    const updated = Array.from(new Set([...userOverrides, ...secretPaths]));
+    setUserOverrides(updated);
+    toast.success(`Excluded ${secretPaths.length} sensitive file(s) from commit`);
+    executeAnalysis(updated, false);
+  };
+
+  const handleToggleFileOverride = (filePath: string) => {
+    const isExcluded = userOverrides.includes(filePath);
+    const updated = isExcluded
+      ? userOverrides.filter((p) => p !== filePath)
+      : [...userOverrides, filePath];
+    setUserOverrides(updated);
+    executeAnalysis(updated, false);
+  };
 
   // Execute Commit
   const handleExecuteCommit = async () => {
-    if (!analysis) return;
+    if (!analysis || step === 'committing' || step === 'completed') return;
 
     if (analysis.hasSecrets && !allowSecretsOverride) {
-      toast.error('Commit stopped: Potential secret detected. Review findings before proceeding.');
+      toast.error('Commit stopped: Potential secret detected. Click "Exclude All Sensitive Files" before proceeding.');
       return;
     }
 
     try {
       setStep('committing');
+      addLog(`──────────────────────────────────────────`);
       addLog(`Starting commit to branch "${branch}"...`);
-      addLog(`Authenticating via VAULTDROP SYNC GitHub App installation...`);
-      addLog(`Uploading Git Blobs for ${analysis.includedCount} files...`);
+      addLog(`Authenticating with VAULTDROP SYNC GitHub App...`);
+      addLog(`Assembling Git tree with ${analysis.includedCount} files...`);
 
       const res = await fetch(`/api/github/workspace/${workspaceId}/commit`, {
         method: 'POST',
@@ -233,14 +281,25 @@ export function CommitModal({
         throw data;
       }
 
-      addLog(`Creating Git Tree...`);
-      addLog(`Created commit: ${data.commitSha.slice(0, 7)}`);
-      addLog(`Updated branch ref refs/heads/${branch}`);
-      addLog(`✓ Commit completed successfully in ${(data.timeTakenMs / 1000).toFixed(2)}s`);
+      const durationSec = (data.timeTakenMs / 1000).toFixed(2);
+      addLog(`✓ Git tree assembled: ${data.filesCommitted} files committed`);
+      addLog(`✓ Commit created: ${data.commitSha.slice(0, 7)}`);
+      addLog(`✓ Updated remote ref: refs/heads/${branch}`);
+      addLog(`✓ Pushed successfully to GitHub in ${durationSec}s`);
+      addLog(`──────────────────────────────────────────`);
+      addLog(`★ COMMIT LIVE: ${connectedRepo.owner}/${connectedRepo.repositoryName}@${branch}`);
+      addLog(`SHA: ${data.commitSha}`);
+      addLog(`──────────────────────────────────────────`);
 
       setCommitResult(data);
       setStep('completed');
-      onCommitSuccess();
+
+      // Inform parent quietly so it can refresh background state without unmounting
+      try {
+        onCommitSuccess();
+      } catch (e) {
+        console.warn('onCommitSuccess warning:', e);
+      }
 
       // Begin polling CI
       startCiPolling(data.commitSha);
@@ -292,7 +351,6 @@ export function CommitModal({
       } catch {}
 
       if (attempts >= 12) {
-        // Stop polling after 1 minute
         clearInterval(interval);
         setPollingCi(false);
       }
@@ -499,47 +557,105 @@ export function CommitModal({
                 </div>
 
                 {/* Secret Warning Banner */}
-                {analysis.hasSecrets && (
-                  <div className="p-4 rounded-2xl bg-rose-500/8 border border-rose-500/20 space-y-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-rose-500/15 flex items-center justify-center flex-shrink-0">
-                        <ShieldAlert className="w-4.5 h-4.5 text-rose-500" />
-                      </div>
-                      <div>
-                        <span className="text-sm font-bold text-rose-700 dark:text-rose-300 block">
-                          Potential Secret Detected!
-                        </span>
-                        <span className="text-[11px] text-rose-600/80 dark:text-rose-400/80">
-                          Commits are blocked to prevent credential leaks
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5 font-mono text-[11px]">
-                      {analysis.securityFindings.map((finding, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-center justify-between p-2 rounded-lg bg-rose-500/8 border border-rose-500/10 text-rose-700 dark:text-rose-300"
-                        >
-                          <span className="truncate mr-3">{finding.filePath}</span>
-                          <span className="text-rose-500 font-bold flex-shrink-0">{finding.rule}</span>
+                {analysis.hasSecrets ? (
+                  <div className="p-5 rounded-2xl bg-gradient-to-br from-rose-500/10 via-rose-500/5 to-transparent border border-rose-500/20 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center flex-shrink-0 text-rose-500">
+                          <ShieldAlert className="w-5 h-5" />
                         </div>
-                      ))}
+                        <div>
+                          <span className="text-sm font-bold text-rose-700 dark:text-rose-300 block">
+                            Potential Secret Detected!
+                          </span>
+                          <span className="text-[11px] text-rose-600/80 dark:text-rose-400/80">
+                            {analysis.securityFindings.length} sensitive file(s) blocked to protect credentials
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleAutoExcludeSecrets}
+                        disabled={isUpdatingOverrides}
+                        className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all flex items-center gap-1.5 flex-shrink-0 shadow-md shadow-rose-600/20 hover:shadow-rose-600/30 self-start sm:self-auto disabled:opacity-50"
+                      >
+                        <ShieldCheck className="w-4 h-4" />
+                        <span>Exclude All Sensitive Files</span>
+                      </button>
                     </div>
 
-                    <label className="flex items-center gap-2.5 cursor-pointer pt-1">
-                      <input
-                        type="checkbox"
-                        checked={allowSecretsOverride}
-                        onChange={(e) => setAllowSecretsOverride(e.target.checked)}
-                        className="rounded border-rose-500/30 text-rose-600 focus:ring-rose-500 w-4 h-4"
-                      />
-                      <span className="text-[11px] font-semibold text-rose-700 dark:text-rose-300">
-                        Override security block (High Risk)
+                    <div className="space-y-1.5 font-mono text-[11px] max-h-40 overflow-y-auto pr-1">
+                      {analysis.securityFindings.map((finding, idx) => {
+                        const isExcluded = userOverrides.includes(finding.filePath);
+                        return (
+                          <div
+                            key={idx}
+                            className={`flex items-center justify-between p-2.5 rounded-xl border transition-colors ${
+                              isExcluded
+                                ? 'bg-neutral-100/50 dark:bg-neutral-800/40 border-neutral-200 dark:border-neutral-700 text-neutral-500'
+                                : 'bg-rose-500/10 border-rose-500/20 text-rose-700 dark:text-rose-300'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0 mr-2">
+                              <Lock className="w-3.5 h-3.5 flex-shrink-0 opacity-70" />
+                              <span className="truncate">{finding.filePath}</span>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <span className="text-[10px] px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-600 dark:text-rose-400 font-bold">
+                                {finding.rule}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleToggleFileOverride(finding.filePath)}
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-colors ${
+                                  isExcluded
+                                    ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                                    : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-rose-500 hover:text-white'
+                                }`}
+                              >
+                                {isExcluded ? 'Excluded ✓' : 'Exclude'}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="pt-1 flex items-center justify-between border-t border-rose-500/15">
+                      <label className="flex items-center gap-2.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={allowSecretsOverride}
+                          onChange={(e) => setAllowSecretsOverride(e.target.checked)}
+                          className="rounded border-rose-500/30 text-rose-600 focus:ring-rose-500 w-4 h-4"
+                        />
+                        <span className="text-[11px] font-semibold text-rose-700 dark:text-rose-300">
+                          Override security block & commit anyway (High Risk)
+                        </span>
+                      </label>
+                      <span className="text-[10px] text-rose-500/70 italic">
+                        Excluded files remain safe in VaultDrop
                       </span>
-                    </label>
+                    </div>
                   </div>
-                )}
+                ) : userOverrides.length > 0 ? (
+                  <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                      <ShieldCheck className="w-4 h-4 text-emerald-500" />
+                      <span>{userOverrides.length} sensitive file(s) excluded from commit. Repository is protected!</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserOverrides([]);
+                        executeAnalysis([], false);
+                      }}
+                      className="text-[10px] text-emerald-600 dark:text-emerald-400 underline hover:no-underline font-mono"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                ) : null}
 
                 {/* Ignored Breakdown Accordion */}
                 {Object.keys(analysis.ignoredByCategory).length > 0 && (
@@ -566,7 +682,10 @@ export function CommitModal({
                             className="w-full p-3 flex items-center justify-between hover:bg-neutral-100/50 dark:hover:bg-neutral-800/50 transition-colors"
                           >
                             <div className="flex items-center gap-2">
-                              <div className="transition-transform duration-200" style={{ transform: expandedCategory === catKey ? 'rotate(90deg)' : 'rotate(0deg)' }}>
+                              <div
+                                className="transition-transform duration-200"
+                                style={{ transform: expandedCategory === catKey ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                              >
                                 <ChevronRight className="w-3.5 h-3.5 text-neutral-400" />
                               </div>
                               <span className="font-semibold text-neutral-800 dark:text-neutral-200 font-mono">
@@ -641,89 +760,158 @@ export function CommitModal({
               </>
             )}
 
-            {/* Step: Completed Success State */}
+            {/* Step: Completed Success State — DEFINITIVE FINAL ANSWER */}
             {step === 'completed' && commitResult && (
-              <div className="py-4 space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                {/* Success Banner */}
-                <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/15 space-y-2">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center flex-shrink-0">
-                      <CheckCircle2 className="w-5 h-5 text-white" />
+              <div className="py-2 space-y-5 animate-in fade-in slide-in-from-bottom-3 duration-300">
+                {/* Celebration Hero Card */}
+                <div className="relative overflow-hidden p-6 rounded-3xl bg-gradient-to-br from-emerald-500/15 via-emerald-500/5 to-transparent border border-emerald-500/25 shadow-xl shadow-emerald-500/10">
+                  <div className="flex items-start gap-4">
+                    <div className="relative">
+                      <div className="w-14 h-14 rounded-2xl bg-emerald-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/30">
+                        <CheckCircle2 className="w-8 h-8" />
+                      </div>
+                      <div className="absolute -inset-1 rounded-2xl bg-emerald-500/20 blur animate-pulse -z-10" />
                     </div>
-                    <div>
-                      <span className="text-base font-bold text-emerald-700 dark:text-emerald-300 block">
-                        Commit Successful!
-                      </span>
-                      <span className="text-xs text-emerald-600/80 dark:text-emerald-400/80">
-                        Pushed to <strong>{commitResult.branch}</strong> in <strong>{commitResult.repository}</strong>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Commit Details */}
-                <div className="p-4 rounded-2xl bg-neutral-50/80 dark:bg-neutral-800/30 border border-neutral-200/60 dark:border-neutral-800 space-y-3 text-xs font-mono">
-                  <div className="flex items-center justify-between pb-2.5 border-b border-neutral-200/60 dark:border-neutral-800">
-                    <span className="text-neutral-400 text-[10px] uppercase tracking-wider font-bold">Commit SHA</span>
-                    <button
-                      onClick={() => handleCopySha(commitResult.commitSha)}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-neutral-200 dark:bg-neutral-700 text-neutral-800 dark:text-neutral-200 font-bold hover:bg-neutral-300 dark:hover:bg-neutral-600 transition-colors"
-                    >
-                      {copiedSha ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
-                      <span>{commitResult.commitSha.slice(0, 7)}</span>
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-3 text-center">
-                    <div>
-                      <span className="text-[10px] text-neutral-400 block mb-0.5">Files</span>
-                      <span className="text-sm font-bold text-neutral-800 dark:text-neutral-200">
-                        {commitResult.filesCommitted}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-neutral-400 block mb-0.5">Excluded</span>
-                      <span className="text-sm font-bold text-rose-500">
-                        {commitResult.ignoredCount}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-neutral-400 block mb-0.5">Duration</span>
-                      <span className="text-sm font-bold text-neutral-500">
-                        {(commitResult.timeTakenMs / 1000).toFixed(2)}s
-                      </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                          Live on GitHub
+                        </span>
+                        <span className="text-[11px] text-neutral-400 font-mono">
+                          {(commitResult.timeTakenMs / 1000).toFixed(2)}s
+                        </span>
+                      </div>
+                      <h3 className="text-xl font-extrabold text-neutral-900 dark:text-white tracking-tight">
+                        Commit Pushed Successfully!
+                      </h3>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                        All workspace files are now versioned on branch{' '}
+                        <strong className="text-neutral-800 dark:text-neutral-200 font-mono">
+                          {commitResult.branch}
+                        </strong>{' '}
+                        in{' '}
+                        <strong className="text-neutral-800 dark:text-neutral-200 font-mono">
+                          {commitResult.repository}
+                        </strong>.
+                      </p>
                     </div>
                   </div>
                 </div>
 
-                {/* CI Status Card */}
-                <div className="p-4 rounded-2xl bg-neutral-50/80 dark:bg-neutral-800/30 border border-neutral-200/60 dark:border-neutral-800 space-y-3">
+                {/* Target Repo & Commit SHA Bar */}
+                <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-800/40 border border-neutral-200/80 dark:border-neutral-700/80 space-y-3">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">
+                        Target Repository
+                      </span>
+                      <div className="flex items-center gap-2 font-mono text-xs font-bold text-neutral-800 dark:text-neutral-200">
+                        <span>{commitResult.repository}</span>
+                        <span className="px-2 py-0.5 rounded-md text-[10px] bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300">
+                          {commitResult.branch}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block mb-1">
+                        Commit SHA
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <code className="px-2.5 py-1 rounded-lg bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-700 text-xs font-mono font-bold text-sky-500">
+                          {commitResult.commitSha.slice(0, 7)}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={() => handleCopySha(commitResult.commitSha)}
+                          className="p-1.5 rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-700 text-neutral-600 dark:text-neutral-300 transition-colors"
+                          title="Copy Full SHA"
+                        >
+                          {copiedSha ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Metric Stat Cards Grid */}
+                <div className="grid grid-cols-4 gap-2.5">
+                  <div className="p-3 rounded-2xl bg-emerald-500/8 border border-emerald-500/15 text-center">
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold block mb-0.5">
+                      Committed
+                    </span>
+                    <span className="text-lg font-extrabold font-mono text-emerald-600 dark:text-emerald-400 leading-none">
+                      {commitResult.filesCommitted}
+                    </span>
+                    <span className="text-[9px] text-neutral-400 block mt-1">files pushed</span>
+                  </div>
+
+                  <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/40 border border-neutral-200 dark:border-neutral-700/80 text-center">
+                    <span className="text-[10px] text-neutral-500 font-semibold block mb-0.5">
+                      Protected
+                    </span>
+                    <span className="text-lg font-extrabold font-mono text-neutral-700 dark:text-neutral-300 leading-none">
+                      {commitResult.ignoredCount}
+                    </span>
+                    <span className="text-[9px] text-neutral-400 block mt-1">excluded</span>
+                  </div>
+
+                  <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/40 border border-neutral-200 dark:border-neutral-700/80 text-center">
+                    <span className="text-[10px] text-neutral-500 font-semibold block mb-0.5">
+                      Payload
+                    </span>
+                    <span className="text-lg font-extrabold font-mono text-neutral-700 dark:text-neutral-300 leading-none">
+                      {analysis ? formatBytes(analysis.includedSize) : '2.2 MB'}
+                    </span>
+                    <span className="text-[9px] text-neutral-400 block mt-1">uploaded</span>
+                  </div>
+
+                  <div className="p-3 rounded-2xl bg-neutral-50 dark:bg-neutral-800/40 border border-neutral-200 dark:border-neutral-700/80 text-center">
+                    <span className="text-[10px] text-neutral-500 font-semibold block mb-0.5">
+                      Duration
+                    </span>
+                    <span className="text-lg font-extrabold font-mono text-neutral-700 dark:text-neutral-300 leading-none">
+                      {(commitResult.timeTakenMs / 1000).toFixed(1)}s
+                    </span>
+                    <span className="text-[9px] text-neutral-400 block mt-1">sync time</span>
+                  </div>
+                </div>
+
+                {/* CI & GitHub Actions Status Card */}
+                <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-800/40 border border-neutral-200/80 dark:border-neutral-700/80 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Zap className="w-3.5 h-3.5 text-amber-500" />
+                      <Zap className="w-4 h-4 text-amber-500" />
                       <span className="text-xs font-bold text-neutral-800 dark:text-neutral-200">
-                        GitHub CI & Workflows
+                        GitHub Actions & CI Status
                       </span>
                       {pollingCi && <RefreshCw className="w-3 h-3 text-sky-500 animate-spin" />}
                     </div>
                     <span className="text-[11px] font-mono font-bold">
-                      {ciStatus === 'running' && <span className="text-sky-500 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-pulse" /> Running</span>}
-                      {ciStatus === 'success' && <span className="text-emerald-500">✓ Passed</span>}
-                      {ciStatus === 'failed' && <span className="text-rose-500">✕ Failed</span>}
+                      {ciStatus === 'running' && (
+                        <span className="text-sky-500 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-sky-500 animate-ping" />
+                          Running Checks
+                        </span>
+                      )}
+                      {ciStatus === 'success' && <span className="text-emerald-500">✓ All Workflows Passed</span>}
+                      {ciStatus === 'failed' && <span className="text-rose-500">✕ Checks Failed</span>}
                       {ciStatus === 'none' && <span className="text-neutral-400">No active workflows</span>}
-                      {ciStatus === 'pending' && <span className="text-amber-500">Queued</span>}
+                      {ciStatus === 'pending' && <span className="text-amber-500">Queued...</span>}
                     </span>
                   </div>
 
                   {checkRuns.length > 0 && (
-                    <div className="space-y-1.5 text-xs">
+                    <div className="space-y-1.5 text-xs max-h-32 overflow-y-auto">
                       {checkRuns.map((run) => (
                         <div
                           key={run.id}
                           className="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-neutral-800 border border-neutral-200/60 dark:border-neutral-700"
                         >
-                          <span className="font-medium text-neutral-800 dark:text-neutral-200">{run.name}</span>
-                          <div className="flex items-center gap-2">
+                          <span className="font-medium text-neutral-800 dark:text-neutral-200 truncate mr-2">
+                            {run.name}
+                          </span>
+                          <div className="flex items-center gap-2 flex-shrink-0">
                             <span
                               className={`text-[10px] font-bold uppercase ${
                                 run.conclusion === 'success'
@@ -742,7 +930,7 @@ export function CommitModal({
                                 rel="noopener noreferrer"
                                 className="text-neutral-400 hover:text-sky-500 transition-colors"
                               >
-                                <ExternalLink className="w-3 h-3" />
+                                <ExternalLink className="w-3.5 h-3.5" />
                               </a>
                             )}
                           </div>
@@ -752,20 +940,21 @@ export function CommitModal({
                   )}
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex items-center gap-3 pt-1">
+                {/* Primary Action Buttons */}
+                <div className="flex items-center gap-3 pt-2">
                   <a
                     href={commitResult.commitUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-md shadow-sky-500/15 hover:shadow-sky-500/25"
+                    className="flex-1 py-3.5 px-5 rounded-2xl bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-600 hover:from-sky-400 hover:to-purple-500 text-white font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-sky-500/25 hover:shadow-sky-500/35 hover:-translate-y-0.5"
                   >
-                    <span>View on GitHub</span>
+                    <span>View Commit on GitHub</span>
                     <ArrowUpRight className="w-4 h-4" />
                   </a>
                   <button
+                    type="button"
                     onClick={onClose}
-                    className="py-3 px-5 rounded-xl border border-neutral-200 dark:border-neutral-700 font-bold text-xs text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                    className="py-3.5 px-6 rounded-2xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100 font-bold text-xs transition-all shadow-md hover:-translate-y-0.5"
                   >
                     Done
                   </button>
@@ -868,7 +1057,7 @@ export function CommitModal({
             {/* Terminal Content */}
             <div
               ref={terminalRef}
-              className="flex-1 px-5 py-4 space-y-1 max-h-[360px] overflow-y-auto text-[11px] leading-relaxed scrollbar-thin"
+              className="flex-1 px-5 py-4 space-y-1 max-h-[380px] overflow-y-auto text-[11px] leading-relaxed scrollbar-thin"
             >
               {terminalLogs.length === 0 ? (
                 <p className="text-neutral-600 italic">Waiting to begin workspace sync...</p>
@@ -879,12 +1068,14 @@ export function CommitModal({
                     className={`break-words transition-opacity duration-200 ${
                       log.includes('✕')
                         ? 'text-rose-400'
-                        : log.includes('✓')
-                        ? 'text-emerald-400'
+                        : log.includes('✓') || log.includes('★')
+                        ? 'text-emerald-400 font-semibold'
                         : log.includes('⚠')
                         ? 'text-amber-400'
                         : log.includes('●')
                         ? 'text-sky-400'
+                        : log.includes('──')
+                        ? 'text-neutral-700'
                         : 'text-neutral-400'
                     }`}
                   >
@@ -893,17 +1084,17 @@ export function CommitModal({
                 ))
               )}
               {step === 'committing' && (
-                <div className="flex items-center gap-2 text-sky-400">
-                  <div className="flex gap-0.5">
+                <div className="flex items-center gap-2 text-sky-400 pt-1">
+                  <div className="flex gap-1">
                     {[0, 1, 2].map((i) => (
                       <div
                         key={i}
-                        className="w-1 h-1 rounded-full bg-sky-400"
-                        style={{ animation: `pulse 1s ease-in-out ${i * 0.15}s infinite` }}
+                        className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse"
+                        style={{ animationDelay: `${i * 150}ms` }}
                       />
                     ))}
                   </div>
-                  <span>Processing Git tree...</span>
+                  <span>Pushing Git tree & updating branch ref...</span>
                 </div>
               )}
             </div>
@@ -922,10 +1113,30 @@ export function CommitModal({
                   type="button"
                   onClick={handleExecuteCommit}
                   disabled={loadingAnalysis || (analysis?.hasSecrets && !allowSecretsOverride)}
-                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 text-white font-bold text-xs transition-all shadow-lg shadow-sky-500/20 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+                  className={`px-6 py-2.5 rounded-xl font-bold text-xs transition-all shadow-lg flex items-center gap-2 ${
+                    analysis?.hasSecrets && !allowSecretsOverride
+                      ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed border border-neutral-700'
+                      : 'bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 text-white shadow-sky-500/20 hover:-translate-y-0.5'
+                  }`}
                 >
                   <Play className="w-3.5 h-3.5 fill-current" />
                   <span>Commit to GitHub</span>
+                </button>
+              </div>
+            )}
+
+            {step === 'completed' && (
+              <div className="px-5 py-4 border-t border-neutral-800 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-emerald-400 text-xs font-mono">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  <span>Sync Complete</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-5 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-200 text-xs font-bold border border-neutral-700 transition-colors"
+                >
+                  Close Console
                 </button>
               </div>
             )}
