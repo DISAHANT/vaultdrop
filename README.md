@@ -2,7 +2,7 @@
 
 **VaultDrop** is a modern, production-grade file-sharing web application built with **Next.js 14 App Router**, **TypeScript**, **Tailwind CSS**, **Prisma ORM**, and **TiDB (MySQL)**.
 
----
+---oooooo
 
 ## 🚀 Key Features
 
