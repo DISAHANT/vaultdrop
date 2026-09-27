@@ -282,3 +282,14 @@ export async function deleteObjectSafe(fileKey: string): Promise<void> {
     } catch {}
   }
 }
+
+/**
+ * Convenience wrapper for uploading an object buffer to storage.
+ */
+export async function putObject(
+  fileKey: string,
+  buffer: Buffer,
+  contentType: string = 'application/octet-stream'
+) {
+  return putObjectSafe({ fileKey, buffer, contentType });
+}

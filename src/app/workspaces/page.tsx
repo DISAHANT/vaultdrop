@@ -19,9 +19,11 @@ import {
   Camera,
   Archive,
   Users,
+  GitBranch,
 } from 'lucide-react';
 import SendToDeviceModal from '@/components/send-to-device-modal';
 import SendToPeopleModal from '@/components/send-to-people-modal';
+import { ConnectRepoModal } from '@/components/github/connect-repo-modal';
 import { toast } from 'sonner';
 
 interface WorkspaceSummary {
@@ -49,6 +51,7 @@ export default function WorkspacesPage() {
   // Send to device state
   const [selectedWorkspaceForSend, setSelectedWorkspaceForSend] = useState<WorkspaceSummary | null>(null);
   const [selectedWorkspaceForPeople, setSelectedWorkspaceForPeople] = useState<WorkspaceSummary | null>(null);
+  const [selectedWorkspaceForGithub, setSelectedWorkspaceForGithub] = useState<WorkspaceSummary | null>(null);
 
   const formatBytes = (bytes: number) => {
     if (!bytes || bytes === 0) return '0 B';
@@ -272,6 +275,13 @@ export default function WorkspacesPage() {
 
                   <div className="flex items-center gap-1">
                     <button
+                      onClick={() => setSelectedWorkspaceForGithub(ws)}
+                      title="Push to GitHub"
+                      className="p-2 rounded-xl hover:bg-sky-500/10 text-neutral-600 dark:text-neutral-400 hover:text-sky-500 transition-colors"
+                    >
+                      <GitBranch className="w-4 h-4" />
+                    </button>
+                    <button
                       onClick={() => setSelectedWorkspaceForPeople(ws)}
                       title="Send to People"
                       className="p-2 rounded-xl hover:bg-cyan-500/10 text-neutral-600 dark:text-neutral-400 hover:text-cyan-500 transition-colors"
@@ -306,6 +316,20 @@ export default function WorkspacesPage() {
             );
           })}
         </div>
+      )}
+
+      {/* GitHub Connect/Push Modal */}
+      {selectedWorkspaceForGithub && (
+        <ConnectRepoModal
+          isOpen={!!selectedWorkspaceForGithub}
+          onClose={() => setSelectedWorkspaceForGithub(null)}
+          workspaceId={selectedWorkspaceForGithub.id}
+          workspaceName={selectedWorkspaceForGithub.name}
+          onConnected={() => {
+            setSelectedWorkspaceForGithub(null);
+            fetchWorkspaces();
+          }}
+        />
       )}
 
       {/* Send to Device Modal */}

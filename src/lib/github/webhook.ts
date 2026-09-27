@@ -99,6 +99,81 @@ export async function processWebhookEvent(options: {
       }
     }
 
+    // Event: check_run (CI checks status)
+    if (eventType === 'check_run') {
+      const checkRun = payload.check_run;
+      const repoId = payload.repository?.id;
+      const repoFullName = payload.repository?.full_name || 'repository';
+
+      if (checkRun && repoId && checkRun.status === 'completed') {
+        const conclusion = checkRun.conclusion; // 'success', 'failure', 'timed_out', etc.
+        const isFailure = conclusion === 'failure' || conclusion === 'timed_out';
+
+        // Find linked workspaces
+        const mappings = await prisma.workspaceGitHubRepo.findMany({
+          where: { repositoryId: repoId },
+        });
+
+        for (const mapping of mappings) {
+          await prisma.notification.create({
+            data: {
+              recipientId: mapping.vaultdropUserId,
+              type: isFailure ? 'github_ci_failed' : 'github_ci_passed',
+              title: isFailure ? 'GitHub CI failed' : 'GitHub CI passed',
+              message: isFailure
+                ? `Check "${checkRun.name}" failed for ${repoFullName}`
+                : `Check "${checkRun.name}" passed for ${repoFullName}`,
+              workspaceId: mapping.workspaceId,
+              metadata: JSON.stringify({
+                checkName: checkRun.name,
+                conclusion,
+                repository: repoFullName,
+                htmlUrl: checkRun.html_url,
+                commitSha: checkRun.head_sha,
+              }),
+            },
+          }).catch(() => null);
+        }
+      }
+    }
+
+    // Event: workflow_run (GitHub Actions workflow completion)
+    if (eventType === 'workflow_run') {
+      const workflowRun = payload.workflow_run;
+      const repoId = payload.repository?.id;
+      const repoFullName = payload.repository?.full_name || 'repository';
+
+      if (workflowRun && repoId && workflowRun.status === 'completed') {
+        const conclusion = workflowRun.conclusion;
+        const isFailure = conclusion === 'failure' || conclusion === 'timed_out';
+
+        const mappings = await prisma.workspaceGitHubRepo.findMany({
+          where: { repositoryId: repoId },
+        });
+
+        for (const mapping of mappings) {
+          await prisma.notification.create({
+            data: {
+              recipientId: mapping.vaultdropUserId,
+              type: isFailure ? 'github_ci_failed' : 'github_ci_passed',
+              title: isFailure ? 'GitHub CI failed' : 'GitHub CI passed',
+              message: isFailure
+                ? `Workflow "${workflowRun.name}" failed for ${repoFullName}`
+                : `Workflow "${workflowRun.name}" passed for ${repoFullName}`,
+              workspaceId: mapping.workspaceId,
+              metadata: JSON.stringify({
+                workflowName: workflowRun.name,
+                conclusion,
+                repository: repoFullName,
+                htmlUrl: workflowRun.html_url,
+                commitSha: workflowRun.head_sha,
+              }),
+            },
+          }).catch(() => null);
+        }
+      }
+    }
+
     // Mark event as processed
     await prisma.gitHubWebhookEvent.update({
       where: { id: eventRecord.id },

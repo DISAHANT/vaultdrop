@@ -395,6 +395,7 @@ model GitHubConnection {
   githubAvatarUrl      String?  @map("github_avatar_url") @db.VarChar(500)
   githubInstallationId Int?     @map("github_installation_id")
   githubAccountType    String   @default("User") @map("github_account_type") @db.VarChar(30)
+  accessToken          String?  @map("access_token") @db.Text
   status               String   @default("active") @db.VarChar(30) // 'active' | 'revoked' | 'expired'
   connectedAt          DateTime @default(now()) @map("connected_at")
   updatedAt            DateTime @updatedAt @map("updated_at")

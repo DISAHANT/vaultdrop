@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import {
@@ -21,15 +21,21 @@ import {
   Unlink,
   Check,
   Clock,
-  Radio,
   Activity,
-  ChevronRight,
   FileCode,
   Zap,
-  History,
   ArrowRight,
+  FolderPlus,
+  Download,
+  AlertTriangle,
+  FolderCode,
+  Cpu,
+  Info,
+  ChevronRight,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { CommitModal } from '@/components/github/commit-modal';
 
 interface GitHubStatusResponse {
   connected: boolean;
@@ -63,10 +69,20 @@ interface WorkspaceItem {
   id: string;
   name: string;
   fileCount: number;
+  totalBytes: number;
+  connectedRepo?: {
+    id: string;
+    owner: string;
+    repositoryName: string;
+    defaultBranch: string;
+    lastCommitSha?: string;
+    lastSyncAt?: string;
+  } | null;
 }
 
 interface OperationItem {
   id: string;
+  workspaceId?: string;
   operation: string;
   status: string;
   repositoryName?: string;
@@ -76,30 +92,69 @@ interface OperationItem {
   errorMessage?: string;
   startedAt: string;
   completedAt?: string;
+  metadata?: any;
 }
 
 export default function GitHubDashboardPage() {
   const { data: session, status: authStatus } = useSession();
 
+  const [activeTab, setActiveTab] = useState<'repos' | 'workspaces' | 'activity'>('repos');
   const [loading, setLoading] = useState(true);
   const [statusData, setStatusData] = useState<GitHubStatusResponse | null>(null);
   const [repositories, setRepositories] = useState<RepositoryItem[]>([]);
   const [loadingRepos, setLoadingRepos] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [repoView, setRepoView] = useState<'grid' | 'list'>('grid');
   const [disconnecting, setDisconnecting] = useState(false);
-  const [recentOps, setRecentOps] = useState<OperationItem[]>([]);
-  const [loadingOps, setLoadingOps] = useState(false);
 
-  // Workspaces mapping
+  // Workspaces data
   const [workspaces, setWorkspaces] = useState<WorkspaceItem[]>([]);
+  const [loadingWorkspaces, setLoadingWorkspaces] = useState(false);
+
+  // Operations/Activity data
+  const [operations, setOperations] = useState<OperationItem[]>([]);
+  const [loadingOperations, setLoadingOperations] = useState(false);
+
+  // ─── Modal States ───
+  // Create Repository Modal
+  const [createRepoModalOpen, setCreateRepoModalOpen] = useState(false);
+  const [newRepoName, setNewRepoName] = useState('');
+  const [newRepoDesc, setNewRepoDesc] = useState('');
+  const [newRepoPrivate, setNewRepoPrivate] = useState(true);
+  const [newRepoInitReadme, setNewRepoInitReadme] = useState(false);
+  const [newRepoGitignore, setNewRepoGitignore] = useState('None');
+  const [newRepoWorkspaceLink, setNewRepoWorkspaceLink] = useState('');
+  const [creatingRepo, setCreatingRepo] = useState(false);
+
+  // Import Repository Modal
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [selectedRepoForImport, setSelectedRepoForImport] = useState<RepositoryItem | null>(null);
+  const [importBranch, setImportBranch] = useState('main');
+  const [importWorkspaceName, setImportWorkspaceName] = useState('');
+  const [importing, setImporting] = useState(false);
+
+  // Link Workspace Modal
+  const [linkModalOpen, setLinkModalOpen] = useState(false);
   const [selectedRepoForLink, setSelectedRepoForLink] = useState<RepositoryItem | null>(null);
   const [linkingWorkspaceId, setLinkingWorkspaceId] = useState('');
   const [linking, setLinking] = useState(false);
 
-  // View mode for repos
-  const [repoView, setRepoView] = useState<'grid' | 'list'>('grid');
+  // Commit Modal
+  const [commitModalOpen, setCommitModalOpen] = useState(false);
+  const [activeWorkspaceForCommit, setActiveWorkspaceForCommit] = useState<WorkspaceItem | null>(null);
 
-  const fetchRepositories = React.useCallback(async () => {
+  // Diagnostics Modal
+  const [selectedOpForDiag, setSelectedOpForDiag] = useState<OperationItem | null>(null);
+
+  // Commits & Branches Viewer Modal
+  const [repoViewerModalOpen, setRepoViewerModalOpen] = useState(false);
+  const [selectedRepoForViewer, setSelectedRepoForViewer] = useState<RepositoryItem | null>(null);
+  const [repoViewerCommits, setRepoViewerCommits] = useState<any[]>([]);
+  const [repoViewerBranches, setRepoViewerBranches] = useState<any[]>([]);
+  const [repoViewerBranch, setRepoViewerBranch] = useState('main');
+  const [loadingRepoViewer, setLoadingRepoViewer] = useState(false);
+
+  const fetchRepositories = useCallback(async () => {
     try {
       setLoadingRepos(true);
       const res = await fetch('/api/github/repositories');
@@ -114,7 +169,59 @@ export default function GitHubDashboardPage() {
     }
   }, []);
 
-  const fetchStatus = React.useCallback(async () => {
+  const fetchWorkspaces = useCallback(async () => {
+    try {
+      setLoadingWorkspaces(true);
+      const res = await fetch('/api/workspaces');
+      if (res.ok) {
+        const data = await res.json();
+        const wsList = data.workspaces || [];
+
+        // For each workspace, check if linked to a GitHub repo
+        const enriched = await Promise.all(
+          wsList.map(async (w: any) => {
+            let connectedRepo = null;
+            try {
+              const rRes = await fetch(`/api/github/workspace/${w.id}/connect`);
+              if (rRes.ok) {
+                const rData = await rRes.json();
+                connectedRepo = rData.repo || null;
+              }
+            } catch {}
+            return {
+              id: w.id,
+              name: w.name,
+              fileCount: w.totalFiles || w.fileCount || 0,
+              totalBytes: w.totalBytes || 0,
+              connectedRepo,
+            };
+          })
+        );
+        setWorkspaces(enriched);
+      }
+    } catch (err) {
+      console.error('Fetch workspaces error:', err);
+    } finally {
+      setLoadingWorkspaces(false);
+    }
+  }, []);
+
+  const fetchOperations = useCallback(async () => {
+    try {
+      setLoadingOperations(true);
+      const res = await fetch('/api/github/operations?limit=30');
+      if (res.ok) {
+        const data = await res.json();
+        setOperations(data.operations || []);
+      }
+    } catch (err) {
+      console.error('Fetch operations error:', err);
+    } finally {
+      setLoadingOperations(false);
+    }
+  }, []);
+
+  const fetchStatus = useCallback(async () => {
     try {
       setLoading(true);
       const res = await fetch('/api/github/status');
@@ -123,38 +230,23 @@ export default function GitHubDashboardPage() {
 
       if (data.connected && data.connection?.hasInstallation) {
         fetchRepositories();
+        fetchWorkspaces();
+        fetchOperations();
       }
     } catch (err) {
       console.error('Fetch status error:', err);
     } finally {
       setLoading(false);
     }
-  }, [fetchRepositories]);
-
-  const fetchWorkspaces = React.useCallback(async () => {
-    try {
-      const res = await fetch('/api/workspaces');
-      if (res.ok) {
-        const data = await res.json();
-        setWorkspaces(
-          (data.workspaces || []).map((w: any) => ({
-            id: w.id,
-            name: w.name,
-            fileCount: w.totalFiles || w.fileCount || 0,
-          }))
-        );
-      }
-    } catch {}
-  }, []);
+  }, [fetchRepositories, fetchWorkspaces, fetchOperations]);
 
   useEffect(() => {
     if (session) {
       fetchStatus();
-      fetchWorkspaces();
     } else if (authStatus !== 'loading') {
       setLoading(false);
     }
-  }, [session, authStatus, fetchStatus, fetchWorkspaces]);
+  }, [session, authStatus, fetchStatus]);
 
   const handleDisconnect = async () => {
     if (!confirm('Are you sure you want to disconnect your GitHub account from VaultDrop?')) return;
@@ -171,7 +263,8 @@ export default function GitHubDashboardPage() {
           appInstallationUrl: 'https://github.com/apps/vaultdrop-sync/installations/new',
         });
         setRepositories([]);
-        setRecentOps([]);
+        setWorkspaces([]);
+        setOperations([]);
       } else {
         toast.error('Failed to disconnect GitHub account.');
       }
@@ -179,6 +272,96 @@ export default function GitHubDashboardPage() {
       toast.error('Error disconnecting GitHub account.');
     } finally {
       setDisconnecting(false);
+    }
+  };
+
+  const handleCreateRepo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRepoName.trim()) return;
+
+    try {
+      setCreatingRepo(true);
+      const res = await fetch('/api/github/repositories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newRepoName.trim(),
+          description: newRepoDesc.trim(),
+          isPrivate: newRepoPrivate,
+          autoInit: newRepoInitReadme,
+          gitignoreTemplate: newRepoGitignore,
+          workspaceId: newRepoWorkspaceLink || undefined,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to create repository.');
+        if (data.details?.reconnectUrl) {
+          toast('GitHub authorization needed', {
+            action: {
+              label: 'Reconnect',
+              onClick: () => (window.location.href = data.details.reconnectUrl),
+            },
+          });
+        }
+        return;
+      }
+
+      toast.success(`Repository ${data.repository.fullName} created!`);
+      setCreateRepoModalOpen(false);
+      setNewRepoName('');
+      setNewRepoDesc('');
+      fetchRepositories();
+      fetchWorkspaces();
+      fetchOperations();
+    } catch (err: any) {
+      toast.error(err?.message || 'Error creating repository.');
+    } finally {
+      setCreatingRepo(false);
+    }
+  };
+
+  const openImportModal = (repo: RepositoryItem) => {
+    setSelectedRepoForImport(repo);
+    setImportBranch(repo.defaultBranch || 'main');
+    setImportWorkspaceName(repo.name);
+    setImportModalOpen(true);
+  };
+
+  const handleImportRepo = async () => {
+    if (!selectedRepoForImport) return;
+
+    try {
+      setImporting(true);
+      const res = await fetch(
+        `/api/github/repositories/${encodeURIComponent(selectedRepoForImport.owner)}/${encodeURIComponent(selectedRepoForImport.name)}/import`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            branch: importBranch,
+            workspaceName: importWorkspaceName.trim() || selectedRepoForImport.name,
+          }),
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to import repository.');
+        return;
+      }
+
+      toast.success(`Imported ${data.filesImported} files into "${data.workspaceName}"!`);
+      setImportModalOpen(false);
+      fetchWorkspaces();
+      fetchOperations();
+    } catch (err: any) {
+      toast.error(err?.message || 'Error importing repository.');
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -199,17 +382,46 @@ export default function GitHubDashboardPage() {
       });
 
       if (res.ok) {
-        toast.success(`Linked to workspace!`);
+        toast.success(`Connected to workspace!`);
+        setLinkModalOpen(false);
         setSelectedRepoForLink(null);
         setLinkingWorkspaceId('');
+        fetchWorkspaces();
       } else {
         const data = await res.json();
-        toast.error(data.error || 'Failed to link workspace.');
+        toast.error(data.error || 'Failed to connect workspace.');
       }
     } catch (err: any) {
-      toast.error(err?.message || 'Error linking workspace.');
+      toast.error(err?.message || 'Error connecting workspace.');
     } finally {
       setLinking(false);
+    }
+  };
+
+  const openRepoViewer = async (repo: RepositoryItem) => {
+    setSelectedRepoForViewer(repo);
+    setRepoViewerBranch(repo.defaultBranch || 'main');
+    setRepoViewerModalOpen(true);
+    setLoadingRepoViewer(true);
+
+    try {
+      // Fetch branches
+      const bRes = await fetch(`/api/github/repositories/${encodeURIComponent(repo.owner)}/${encodeURIComponent(repo.name)}/branches`);
+      if (bRes.ok) {
+        const bData = await bRes.json();
+        setRepoViewerBranches(bData.branches || []);
+      }
+
+      // Fetch commits
+      const cRes = await fetch(`/api/github/repositories/${encodeURIComponent(repo.owner)}/${encodeURIComponent(repo.name)}/commits?branch=${encodeURIComponent(repo.defaultBranch || 'main')}`);
+      if (cRes.ok) {
+        const cData = await cRes.json();
+        setRepoViewerCommits(cData.commits || []);
+      }
+    } catch (err) {
+      console.error('Error fetching repo details:', err);
+    } finally {
+      setLoadingRepoViewer(false);
     }
   };
 
@@ -238,16 +450,7 @@ export default function GitHubDashboardPage() {
           </div>
           <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-sky-500 animate-ping" />
         </div>
-        <p className="text-xs text-neutral-500 font-mono tracking-wider">INITIALIZING GITHUB SYNC</p>
-        <div className="mt-4 flex items-center gap-1.5">
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className="w-1.5 h-1.5 rounded-full bg-sky-500"
-              style={{ animation: `pulse 1.4s ease-in-out ${i * 0.2}s infinite` }}
-            />
-          ))}
-        </div>
+        <p className="text-xs text-neutral-500 font-mono tracking-wider">INITIALIZING DEVELOPER WORKSPACE</p>
       </div>
     );
   }
@@ -269,13 +472,12 @@ export default function GitHubDashboardPage() {
             Sign In to Access GitHub
           </h1>
           <p className="text-sm text-neutral-500 leading-relaxed">
-            VaultDrop provides account-level GitHub synchronization across all your developer devices.
-            Sign in to connect your GitHub account and start syncing.
+            VaultDrop connects directly with your GitHub account, allowing seamless two-way code synchronization, branch switching, and automated commits.
           </p>
         </div>
         <Link
           href="/login?callbackUrl=/github"
-          className="inline-flex items-center justify-center gap-2.5 px-8 py-3 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-500 text-white font-bold text-sm hover:shadow-lg hover:shadow-sky-500/25 transition-all duration-300 hover:-translate-y-0.5"
+          className="inline-flex items-center justify-center gap-2.5 px-8 py-3 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-500 text-white font-bold text-sm hover:shadow-lg transition-all"
         >
           <span>Sign In to Continue</span>
           <ArrowRight className="w-4 h-4" />
@@ -297,28 +499,23 @@ export default function GitHubDashboardPage() {
     <div className="min-h-screen pt-24 pb-20 px-4 sm:px-6 max-w-7xl mx-auto space-y-8">
       {/* ─── Hero Header ─── */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-neutral-900 via-neutral-900 to-sky-950 dark:from-neutral-950 dark:via-neutral-950 dark:to-sky-950 p-8 sm:p-10 border border-neutral-800">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-[0.03]" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-        }} />
-
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <div className="flex items-center gap-3 mb-3">
+            <div className="flex items-center gap-3 mb-2">
               <div className="w-12 h-12 rounded-2xl bg-sky-500/15 border border-sky-500/25 flex items-center justify-center backdrop-blur-sm">
                 <GitBranch className="w-6 h-6 text-sky-400" />
               </div>
               <div>
                 <div className="flex items-center gap-2.5">
                   <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-                    GitHub Sync
+                    GitHub Developer Workspace
                   </h1>
                   <span className="px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold bg-sky-500/15 text-sky-400 border border-sky-500/20 uppercase tracking-widest">
-                    VaultDrop Sync
+                    SYNC 2.0
                   </span>
                 </div>
                 <p className="text-sm text-neutral-400 mt-0.5">
-                  Secure Git integration for VaultDrop workspaces
+                  Move code seamlessly between VaultDrop workspaces and GitHub repositories
                 </p>
               </div>
             </div>
@@ -334,28 +531,26 @@ export default function GitHubDashboardPage() {
                 >
                   <RefreshCw className="w-4 h-4" />
                 </button>
-                <a
-                  href={`https://github.com/settings/installations/${statusData?.connection?.installationId || ''}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-neutral-300 hover:text-white hover:bg-white/10 text-xs font-semibold transition-all"
+                <button
+                  onClick={() => setCreateRepoModalOpen(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-md shadow-sky-500/20 transition-all"
                 >
-                  <span>Manage Access</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
+                  <FolderPlus className="w-4 h-4" />
+                  <span>+ Create Repository</span>
+                </button>
                 <button
                   onClick={handleDisconnect}
                   disabled={disconnecting}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 text-xs font-semibold transition-all disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 text-xs font-semibold transition-all disabled:opacity-50"
                 >
                   <Unlink className="w-3.5 h-3.5" />
-                  <span>{disconnecting ? 'Disconnecting...' : 'Disconnect'}</span>
+                  <span>{disconnecting ? '...' : 'Disconnect'}</span>
                 </button>
               </>
             ) : (
               <a
                 href="/api/github/connect"
-                className="inline-flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-500 text-white font-bold text-sm hover:shadow-lg hover:shadow-sky-500/25 transition-all duration-300 hover:-translate-y-0.5"
+                className="inline-flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-500 text-white font-bold text-sm hover:shadow-lg transition-all"
               >
                 <GitBranch className="w-4 h-4" />
                 <span>Connect GitHub Account</span>
@@ -365,339 +560,257 @@ export default function GitHubDashboardPage() {
         </div>
       </div>
 
-      {/* ─── Account Status Cards ─── */}
+      {/* ─── Connected Account Status Cards ─── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {/* Identity Card */}
-        <div className="relative bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 rounded-2xl p-5 shadow-lg hover:shadow-xl transition-shadow duration-300 group">
-          <div className="absolute top-4 right-4">
-            {isConnected && (
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
-              </span>
-            )}
-          </div>
-
-          <span className="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-widest block mb-3">
-            Identity
-          </span>
-
-          <div className="flex items-center gap-3">
+        <div className="bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 rounded-2xl p-5 shadow-lg flex items-center justify-between">
+          <div className="flex items-center gap-3.5">
             {statusData?.connection?.githubAvatarUrl ? (
               <img
                 src={statusData.connection.githubAvatarUrl}
                 alt={statusData.connection.githubLogin}
-                className="w-12 h-12 rounded-xl border-2 border-sky-500/20 object-cover shadow-sm group-hover:border-sky-500/40 transition-colors"
+                className="w-12 h-12 rounded-xl border-2 border-sky-500/20 object-cover shadow-sm"
               />
             ) : (
               <div className="w-12 h-12 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-400">
                 <GitBranch className="w-6 h-6" />
               </div>
             )}
-
-            {isConnected ? (
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-sm font-bold text-neutral-900 dark:text-neutral-100 font-mono truncate">
+            <div>
+              <span className="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-widest block">
+                Connected User
+              </span>
+              {isConnected ? (
+                <div className="flex items-center gap-2 mt-0.5">
+                  <strong className="text-sm font-bold text-neutral-900 dark:text-neutral-100 font-mono">
                     @{statusData?.connection?.githubLogin}
-                  </span>
-                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-500 uppercase">
-                    {statusData?.connection?.githubAccountType || 'User'}
+                  </strong>
+                  <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-500">
+                    {statusData?.connection?.githubAccountType}
                   </span>
                 </div>
-                <span className="text-[11px] text-neutral-400 font-mono">
-                  Linked {formatRelativeTime(statusData!.connection!.connectedAt)}
-                </span>
-              </div>
-            ) : (
-              <div>
-                <span className="text-sm font-semibold text-neutral-500 block">Not connected</span>
-                <span className="text-[11px] text-neutral-400">Connect to get started</span>
-              </div>
-            )}
+              ) : (
+                <span className="text-xs text-neutral-500">Not connected</span>
+              )}
+            </div>
           </div>
+          {isConnected && (
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" title="Connected" />
+          )}
         </div>
 
-        {/* Installation Status Card */}
-        <div className="bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 rounded-2xl p-5 shadow-lg hover:shadow-xl transition-shadow duration-300">
-          <span className="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-widest block mb-3">
-            App Installation
-          </span>
-
-          {hasInstallation ? (
-            <div className="space-y-2">
+        {/* Installation Status */}
+        <div className="bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 rounded-2xl p-5 shadow-lg flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-widest block mb-1">
+              App Permissions
+            </span>
+            {hasInstallation ? (
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                  <CheckCircle2 className="w-4.5 h-4.5 text-emerald-500" />
-                </div>
-                <div>
-                  <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 block">
-                    Active
-                  </span>
-                  <span className="text-[10px] text-neutral-400 font-mono">VAULTDROP SYNC</span>
-                </div>
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                  Full Read & Write Active
+                </span>
               </div>
-            </div>
-          ) : isConnected ? (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-amber-500 font-semibold text-xs">
-                <AlertCircle className="w-4 h-4" />
-                <span>Installation Pending</span>
-              </div>
+            ) : isConnected ? (
               <a
                 href={statusData?.appInstallationUrl || 'https://github.com/apps/vaultdrop-sync/installations/new'}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs text-sky-500 hover:text-sky-400 font-semibold transition-colors"
+                className="text-xs font-bold text-amber-500 hover:underline flex items-center gap-1"
               >
                 <span>Complete Installation</span>
                 <ExternalLink className="w-3 h-3" />
               </a>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-neutral-100 dark:bg-neutral-800 flex items-center justify-center">
-                <Shield className="w-4 h-4 text-neutral-400" />
-              </div>
-              <span className="text-xs text-neutral-400">Available after connection</span>
-            </div>
-          )}
-        </div>
-
-        {/* Repositories Count Card */}
-        <div className="bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 rounded-2xl p-5 shadow-lg hover:shadow-xl transition-shadow duration-300">
-          <span className="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-widest block mb-3">
-            Granted Repositories
-          </span>
-
-          <div className="flex items-end justify-between">
-            <div>
-              <span className="text-3xl font-extrabold font-mono text-neutral-900 dark:text-neutral-100 block leading-none">
-                {repositories.length}
-              </span>
-              <span className="text-[11px] text-neutral-400 mt-1 block">repositories accessible</span>
-            </div>
-            {repositories.length > 0 && (
-              <div className="flex -space-x-1">
-                {repositories.slice(0, 4).map((r, i) => (
-                  <div
-                    key={r.id}
-                    className="w-6 h-6 rounded-md bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-[8px] font-bold text-neutral-500"
-                    title={r.fullName}
-                    style={{ zIndex: 4 - i }}
-                  >
-                    {r.name[0]?.toUpperCase()}
-                  </div>
-                ))}
-                {repositories.length > 4 && (
-                  <div className="w-6 h-6 rounded-md bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-[8px] font-bold text-sky-500">
-                    +{repositories.length - 4}
-                  </div>
-                )}
-              </div>
+            ) : (
+              <span className="text-xs text-neutral-400">Requires connection</span>
             )}
           </div>
+          <span className="text-[10px] font-mono text-neutral-400 uppercase">VAULTDROP SYNC</span>
+        </div>
+
+        {/* Statistics */}
+        <div className="bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 rounded-2xl p-5 shadow-lg flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-widest block mb-1">
+              Developer Scope
+            </span>
+            <div className="flex items-center gap-4 text-xs font-mono">
+              <span><strong>{repositories.length}</strong> repos</span>
+              <span><strong>{workspaces.length}</strong> workspaces</span>
+            </div>
+          </div>
+          <Layers className="w-6 h-6 text-sky-500/40" />
         </div>
       </div>
 
-      {/* ─── Security & Cross-Device Badge ─── */}
-      {isConnected && (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-5 py-3.5 rounded-2xl bg-neutral-50/80 dark:bg-neutral-900/40 border border-neutral-200/60 dark:border-neutral-800/60">
-          <div className="flex items-center gap-2.5 text-[11px] text-neutral-500">
-            <Laptop className="w-4 h-4 text-teal-500 flex-shrink-0" />
-            <span>
-              <strong className="text-neutral-700 dark:text-neutral-300">Cross-Device Enabled</strong> — Connection synced across Desktop, Laptop, and Mobile
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 font-mono text-[11px] text-neutral-400">
-            <Shield className="w-3.5 h-3.5 text-emerald-500" />
-            <span>Zero tokens stored on client</span>
-          </div>
-        </div>
-      )}
+      {/* ─── Navigation Tabs ─── */}
+      <div className="flex border-b border-neutral-200 dark:border-neutral-800 gap-4">
+        <button
+          onClick={() => setActiveTab('repos')}
+          className={`pb-3.5 text-sm font-bold flex items-center gap-2 border-b-2 transition-all ${
+            activeTab === 'repos'
+              ? 'border-sky-500 text-sky-600 dark:text-sky-400'
+              : 'border-transparent text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'
+          }`}
+        >
+          <GitBranch className="w-4 h-4" />
+          <span>Repositories ({repositories.length})</span>
+        </button>
 
-      {/* ─── Repository Browser ─── */}
-      {isConnected && (
+        <button
+          onClick={() => setActiveTab('workspaces')}
+          className={`pb-3.5 text-sm font-bold flex items-center gap-2 border-b-2 transition-all ${
+            activeTab === 'workspaces'
+              ? 'border-sky-500 text-sky-600 dark:text-sky-400'
+              : 'border-transparent text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'
+          }`}
+        >
+          <FolderCode className="w-4 h-4" />
+          <span>Workspaces ({workspaces.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('activity')}
+          className={`pb-3.5 text-sm font-bold flex items-center gap-2 border-b-2 transition-all ${
+            activeTab === 'activity'
+              ? 'border-sky-500 text-sky-600 dark:text-sky-400'
+              : 'border-transparent text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'
+          }`}
+        >
+          <Activity className="w-4 h-4" />
+          <span>Sync & Commit Activity ({operations.length})</span>
+        </button>
+      </div>
+
+      {/* ─── TAB 1: REPOSITORIES ─── */}
+      {activeTab === 'repos' && (
         <div className="bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 rounded-3xl shadow-xl overflow-hidden">
-          {/* Header */}
-          <div className="p-6 sm:p-8 pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-neutral-200/60 dark:border-neutral-800/60">
-            <div>
-              <div className="flex items-center gap-2.5">
-                <h2 className="text-lg font-bold text-neutral-900 dark:text-neutral-100">
-                  Repositories
-                </h2>
-                <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold font-mono bg-neutral-100 dark:bg-neutral-800 text-neutral-500">
-                  {repositories.length}
-                </span>
-              </div>
-              <p className="text-xs text-neutral-500 mt-0.5">
-                Repositories accessible through your VAULTDROP SYNC installation
-              </p>
+          {/* Controls Bar */}
+          <div className="p-5 sm:p-6 border-b border-neutral-200/60 dark:border-neutral-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="relative w-full sm:w-80">
+              <Search className="w-4 h-4 text-neutral-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search repositories..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-sky-500 font-mono transition-all"
+              />
             </div>
 
-            {/* Search & View Toggle */}
             <div className="flex items-center gap-2">
-              <div className="relative w-full sm:w-64">
-                <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Search repositories..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-sky-500/50 focus:ring-2 focus:ring-sky-500/10 font-mono transition-all"
-                />
-              </div>
-              <div className="flex items-center bg-neutral-100 dark:bg-neutral-800 rounded-lg p-0.5 border border-neutral-200 dark:border-neutral-700">
-                <button
-                  onClick={() => setRepoView('grid')}
-                  className={`p-1.5 rounded-md text-xs transition-all ${repoView === 'grid' ? 'bg-white dark:bg-neutral-700 shadow-sm text-neutral-900 dark:text-white' : 'text-neutral-400'}`}
-                >
-                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 16 16"><path d="M1 2.5A1.5 1.5 0 012.5 1h3A1.5 1.5 0 017 2.5v3A1.5 1.5 0 015.5 7h-3A1.5 1.5 0 011 5.5v-3zm8 0A1.5 1.5 0 0110.5 1h3A1.5 1.5 0 0115 2.5v3A1.5 1.5 0 0113.5 7h-3A1.5 1.5 0 019 5.5v-3zm-8 8A1.5 1.5 0 012.5 9h3A1.5 1.5 0 017 10.5v3A1.5 1.5 0 015.5 15h-3A1.5 1.5 0 011 13.5v-3zm8 0A1.5 1.5 0 0110.5 9h3a1.5 1.5 0 011.5 1.5v3a1.5 1.5 0 01-1.5 1.5h-3A1.5 1.5 0 019 13.5v-3z"/></svg>
-                </button>
-                <button
-                  onClick={() => setRepoView('list')}
-                  className={`p-1.5 rounded-md text-xs transition-all ${repoView === 'list' ? 'bg-white dark:bg-neutral-700 shadow-sm text-neutral-900 dark:text-white' : 'text-neutral-400'}`}
-                >
-                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 16 16"><path fillRule="evenodd" d="M2.5 12a.5.5 0 01.5-.5h10a.5.5 0 010 1H3a.5.5 0 01-.5-.5zm0-4a.5.5 0 01.5-.5h10a.5.5 0 010 1H3a.5.5 0 01-.5-.5zm0-4a.5.5 0 01.5-.5h10a.5.5 0 010 1H3a.5.5 0 01-.5-.5z"/></svg>
-                </button>
-              </div>
+              <button
+                onClick={() => setCreateRepoModalOpen(true)}
+                className="px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all"
+              >
+                <FolderPlus className="w-3.5 h-3.5" />
+                <span>+ Create Repository</span>
+              </button>
             </div>
           </div>
 
-          {/* Repository Content */}
-          <div className="p-6 sm:p-8 pt-5">
+          {/* Repos Grid */}
+          <div className="p-5 sm:p-6">
             {loadingRepos ? (
               <div className="py-16 text-center space-y-3">
-                <div className="relative inline-block">
-                  <RefreshCw className="w-8 h-8 text-sky-500 animate-spin" />
-                </div>
-                <p className="text-xs text-neutral-500 font-mono">Syncing repository manifest from GitHub...</p>
+                <RefreshCw className="w-7 h-7 text-sky-500 animate-spin mx-auto" />
+                <p className="text-xs text-neutral-400 font-mono">Syncing repositories from GitHub...</p>
               </div>
             ) : filteredRepos.length === 0 ? (
-              <div className="py-16 text-center space-y-4">
-                <div className="w-16 h-16 rounded-2xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center mx-auto">
-                  <FileCode className="w-7 h-7 text-neutral-300 dark:text-neutral-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">
-                    {searchQuery ? 'No repositories match your search' : 'No accessible repositories found'}
-                  </p>
-                  <p className="text-xs text-neutral-400 mt-1">
-                    {searchQuery ? 'Try a different search term.' : 'Grant VAULTDROP SYNC access to your repositories.'}
-                  </p>
-                </div>
-                {!searchQuery && (
-                  <a
-                    href={statusData?.appInstallationUrl || 'https://github.com/apps/vaultdrop-sync/installations/new'}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-sky-500 text-white text-xs font-bold hover:bg-sky-400 transition-colors shadow-sm shadow-sky-500/20"
-                  >
-                    <span>Add Repositories</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                )}
+              <div className="py-16 text-center space-y-3">
+                <FileCode className="w-10 h-10 text-neutral-400 mx-auto" />
+                <p className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">
+                  {searchQuery ? 'No repositories match your search' : 'No accessible repositories found'}
+                </p>
+                <button
+                  onClick={() => setCreateRepoModalOpen(true)}
+                  className="text-xs font-bold text-sky-500 hover:underline"
+                >
+                  Create a new GitHub repository now →
+                </button>
               </div>
             ) : (
-              <div className={repoView === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 gap-4' : 'space-y-2'}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredRepos.map((repo) => (
-                  repoView === 'grid' ? (
-                    <div
-                      key={repo.id}
-                      className="group p-5 rounded-2xl bg-neutral-50/70 dark:bg-neutral-800/30 border border-neutral-200/60 dark:border-neutral-800 hover:border-sky-500/30 dark:hover:border-sky-500/20 transition-all duration-300 hover:shadow-md flex flex-col justify-between text-xs space-y-3"
-                    >
-                      <div>
-                        <div className="flex items-center justify-between gap-2 mb-2">
-                          <span className="font-bold text-neutral-900 dark:text-neutral-100 font-mono text-sm truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
-                            {repo.fullName}
-                          </span>
-                          {repo.private ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 flex-shrink-0">
-                              <Lock className="w-2.5 h-2.5" />
-                              <span>Private</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex-shrink-0">
-                              <Globe className="w-2.5 h-2.5" />
-                              <span>Public</span>
-                            </span>
-                          )}
-                        </div>
-
-                        <p className="text-[11px] text-neutral-500 line-clamp-2 min-h-[32px] leading-relaxed">
-                          {repo.description || 'No description provided.'}
-                        </p>
-                      </div>
-
-                      <div className="pt-3 border-t border-neutral-200/50 dark:border-neutral-800/50 flex items-center justify-between text-[11px]">
-                        <div className="flex items-center gap-3">
-                          <span className="font-mono text-neutral-400 flex items-center gap-1">
-                            <GitBranch className="w-3 h-3" />
-                            {repo.defaultBranch}
-                          </span>
-                          <span className="text-neutral-300 dark:text-neutral-600 font-mono">
-                            {formatRelativeTime(repo.updatedAt)}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-1.5">
-                          <a
-                            href={repo.htmlUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 hover:bg-neutral-200/50 dark:hover:bg-neutral-700 transition-colors"
-                            title="View on GitHub"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                          </a>
-
-                          <button
-                            onClick={() => setSelectedRepoForLink(repo)}
-                            className="px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-semibold text-[11px] transition-all flex items-center gap-1.5 shadow-sm shadow-sky-500/15 hover:shadow-sky-500/25"
-                          >
-                            <Layers className="w-3 h-3" />
-                            <span>Link</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    /* List View */
-                    <div
-                      key={repo.id}
-                      className="group flex items-center justify-between gap-4 p-3.5 rounded-xl bg-neutral-50/50 dark:bg-neutral-800/20 border border-neutral-200/40 dark:border-neutral-800/40 hover:border-sky-500/20 transition-all hover:bg-neutral-50 dark:hover:bg-neutral-800/40"
-                    >
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <span className="font-bold text-neutral-900 dark:text-neutral-100 font-mono text-xs truncate group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
+                  <div
+                    key={repo.id}
+                    className="p-5 rounded-2xl bg-neutral-50/70 dark:bg-neutral-800/30 border border-neutral-200/60 dark:border-neutral-800 hover:border-sky-500/30 transition-all flex flex-col justify-between space-y-4"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className="font-bold text-neutral-900 dark:text-neutral-100 font-mono text-sm truncate">
                           {repo.fullName}
                         </span>
                         {repo.private ? (
-                          <Lock className="w-3 h-3 text-neutral-400 flex-shrink-0" />
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300">
+                            <Lock className="w-2.5 h-2.5" /> Private
+                          </span>
                         ) : (
-                          <Globe className="w-3 h-3 text-emerald-500 flex-shrink-0" />
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                            <Globe className="w-2.5 h-2.5" /> Public
+                          </span>
                         )}
-                        <span className="text-[10px] font-mono text-neutral-400 flex-shrink-0 hidden sm:inline">
-                          {repo.defaultBranch}
-                        </span>
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
+
+                      <p className="text-xs text-neutral-500 line-clamp-2 min-h-[32px] leading-relaxed">
+                        {repo.description || 'No description provided.'}
+                      </p>
+                    </div>
+
+                    <div className="pt-3 border-t border-neutral-200/50 dark:border-neutral-800/50 flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-3 text-neutral-400 font-mono text-[11px]">
+                        <span className="flex items-center gap-1">
+                          <GitBranch className="w-3 h-3" /> {repo.defaultBranch}
+                        </span>
+                        <span>{formatRelativeTime(repo.updatedAt)}</span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {/* Commits & Branches Viewer */}
+                        <button
+                          onClick={() => openRepoViewer(repo)}
+                          className="px-2.5 py-1.5 rounded-xl border border-neutral-200 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300 hover:text-sky-500 text-[11px] font-semibold transition-colors"
+                          title="View commits & branches"
+                        >
+                          Commits
+                        </button>
+
+                        {/* Import to VaultDrop */}
+                        <button
+                          onClick={() => openImportModal(repo)}
+                          className="px-3 py-1.5 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20 hover:bg-teal-500/20 text-[11px] font-bold flex items-center gap-1 transition-all"
+                          title="Import repository into a VaultDrop workspace"
+                        >
+                          <Download className="w-3 h-3" />
+                          <span>Import</span>
+                        </button>
+
+                        {/* Connect Workspace */}
+                        <button
+                          onClick={() => {
+                            setSelectedRepoForLink(repo);
+                            setLinkModalOpen(true);
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-[11px] flex items-center gap-1 shadow-sm transition-all"
+                        >
+                          <Layers className="w-3 h-3" />
+                          <span>Connect</span>
+                        </button>
+
+                        {/* Link to GitHub */}
                         <a
                           href={repo.htmlUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="p-1.5 rounded-lg text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 hover:bg-neutral-200/50 dark:hover:bg-neutral-700 transition-colors"
+                          className="p-1.5 rounded-xl text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 hover:bg-neutral-200/50 dark:hover:bg-neutral-700 transition-colors"
+                          title="Open on GitHub"
                         >
-                          <ExternalLink className="w-3.5 h-3.5" />
+                          <ArrowUpRight className="w-3.5 h-3.5" />
                         </a>
-                        <button
-                          onClick={() => setSelectedRepoForLink(repo)}
-                          className="px-3 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-white font-semibold text-[11px] transition-colors"
-                        >
-                          Link
-                        </button>
                       </div>
                     </div>
-                  )
+                  </div>
                 ))}
               </div>
             )}
@@ -705,78 +818,628 @@ export default function GitHubDashboardPage() {
         </div>
       )}
 
-      {/* ─── Link Workspace Modal ─── */}
-      {selectedRepoForLink && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div
-            className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-5 animate-in zoom-in-95 duration-200"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-sky-500/10 text-sky-500 border border-sky-500/20 flex items-center justify-center">
-                <Layers className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100">
-                  Link Repository
-                </h3>
-                <p className="text-[11px] text-neutral-500 font-mono">
-                  {selectedRepoForLink.fullName}
-                </p>
-              </div>
-            </div>
-
-            <p className="text-xs text-neutral-500 leading-relaxed">
-              Select which VaultDrop workspace will sync with{' '}
-              <strong className="text-neutral-800 dark:text-neutral-200 font-mono">
-                {selectedRepoForLink.fullName}
-              </strong>
-              . You can commit files from this workspace directly to the repository.
+      {/* ─── TAB 2: WORKSPACES ─── */}
+      {activeTab === 'workspaces' && (
+        <div className="bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 rounded-3xl shadow-xl overflow-hidden p-5 sm:p-6">
+          <div className="mb-4">
+            <h2 className="text-base font-bold text-neutral-900 dark:text-neutral-100">
+              VaultDrop Workspaces & GitHub Sync
+            </h2>
+            <p className="text-xs text-neutral-500">
+              Manage code commits and branch references for all your local workspaces
             </p>
+          </div>
 
+          {loadingWorkspaces ? (
+            <div className="py-14 text-center">
+              <RefreshCw className="w-6 h-6 text-sky-500 animate-spin mx-auto mb-2" />
+              <p className="text-xs text-neutral-400 font-mono">Loading workspaces...</p>
+            </div>
+          ) : workspaces.length === 0 ? (
+            <div className="py-14 text-center space-y-3">
+              <FolderCode className="w-10 h-10 text-neutral-400 mx-auto" />
+              <p className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">
+                No VaultDrop workspaces found
+              </p>
+              <Link href="/codedrop" className="text-xs font-bold text-sky-500 hover:underline">
+                Upload a workspace with CodeDrop →
+              </Link>
+            </div>
+          ) : (
+            <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+              {workspaces.map((ws) => (
+                <div key={ws.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <strong className="text-sm font-bold text-neutral-900 dark:text-neutral-100 font-mono">
+                        {ws.name}
+                      </strong>
+                      <span className="text-[10px] text-neutral-400 font-mono">
+                        {ws.fileCount} files
+                      </span>
+                    </div>
+
+                    {ws.connectedRepo ? (
+                      <div className="flex items-center gap-2 text-xs text-neutral-500">
+                        <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-mono font-semibold">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>{ws.connectedRepo.owner}/{ws.connectedRepo.repositoryName}</span>
+                        </span>
+                        <span className="text-[10px] font-mono text-neutral-400">
+                          ({ws.connectedRepo.defaultBranch})
+                        </span>
+                        {ws.connectedRepo.lastCommitSha && (
+                          <span className="text-[10px] font-mono text-sky-500">
+                            Commit: {ws.connectedRepo.lastCommitSha.slice(0, 7)}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-neutral-400">
+                        Not connected to GitHub
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {ws.connectedRepo ? (
+                      <>
+                        <button
+                          onClick={() => {
+                            setActiveWorkspaceForCommit(ws);
+                            setCommitModalOpen(true);
+                          }}
+                          className="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 text-white font-bold text-xs shadow-sm hover:shadow-md transition-all flex items-center gap-1.5"
+                        >
+                          <GitCommit className="w-3.5 h-3.5" />
+                          <span>Commit Changes</span>
+                        </button>
+                        <Link
+                          href={`/workspaces/${ws.id}`}
+                          className="px-3.5 py-2 rounded-xl border border-neutral-200 dark:border-neutral-700 text-xs font-semibold text-neutral-600 dark:text-neutral-300 hover:text-sky-500 transition-colors"
+                        >
+                          Manage
+                        </Link>
+                      </>
+                    ) : (
+                      <Link
+                        href={`/workspaces/${ws.id}`}
+                        className="px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-sm transition-all flex items-center gap-1.5"
+                      >
+                        <GitBranch className="w-3.5 h-3.5" />
+                        <span>Push to GitHub</span>
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─── TAB 3: ACTIVITY & COMMITS ─── */}
+      {activeTab === 'activity' && (
+        <div className="bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 rounded-3xl shadow-xl overflow-hidden p-5 sm:p-6">
+          <div className="flex items-center justify-between mb-4">
             <div>
-              <label className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 block mb-1.5">
-                Target Workspace
-              </label>
-              <select
-                value={linkingWorkspaceId}
-                onChange={(e) => setLinkingWorkspaceId(e.target.value)}
-                className="w-full px-3 py-2.5 text-xs rounded-xl bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/10 transition-all"
+              <h2 className="text-base font-bold text-neutral-900 dark:text-neutral-100">
+                Audit Trail & Operation History
+              </h2>
+              <p className="text-xs text-neutral-500">
+                Cryptographically tracked commits, pulls, and webhook sync events
+              </p>
+            </div>
+            <button
+              onClick={fetchOperations}
+              disabled={loadingOperations}
+              className="p-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 text-neutral-500 hover:text-neutral-800 transition-colors"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loadingOperations ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+
+          {loadingOperations ? (
+            <div className="py-14 text-center">
+              <RefreshCw className="w-6 h-6 text-sky-500 animate-spin mx-auto mb-2" />
+              <p className="text-xs text-neutral-400 font-mono">Fetching activity history...</p>
+            </div>
+          ) : operations.length === 0 ? (
+            <div className="py-14 text-center space-y-2">
+              <Activity className="w-8 h-8 text-neutral-400 mx-auto" />
+              <p className="text-xs text-neutral-500">No Git operations recorded yet</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
+              {operations.map((op) => (
+                <div key={op.id} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                  <div className="flex items-start gap-3">
+                    <div className={`p-2 rounded-xl mt-0.5 ${
+                      op.status === 'success'
+                        ? 'bg-emerald-500/10 text-emerald-500'
+                        : op.status === 'failed'
+                        ? 'bg-rose-500/10 text-rose-500'
+                        : 'bg-sky-500/10 text-sky-500'
+                    }`}>
+                      {op.status === 'success' ? (
+                        <CheckCircle2 className="w-4 h-4" />
+                      ) : op.status === 'failed' ? (
+                        <AlertTriangle className="w-4 h-4" />
+                      ) : (
+                        <Activity className="w-4 h-4" />
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="font-bold text-neutral-900 dark:text-neutral-100 font-mono uppercase">
+                          {op.operation}
+                        </span>
+                        <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
+                          op.status === 'success'
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                            : op.status === 'failed'
+                            ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                            : 'bg-sky-500/10 text-sky-500'
+                        }`}>
+                          {op.status}
+                        </span>
+                        {op.repositoryName && (
+                          <span className="text-neutral-400 font-mono">
+                            {op.repositoryName}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 text-[11px] text-neutral-400 font-mono">
+                        <span>{formatRelativeTime(op.startedAt)}</span>
+                        {op.commitSha && (
+                          <span>Commit: <strong className="text-sky-500">{op.commitSha.slice(0, 7)}</strong></span>
+                        )}
+                        {op.filesChanged !== null && op.filesChanged !== undefined && (
+                          <span>{op.filesChanged} files</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {op.status === 'failed' && (
+                    <button
+                      onClick={() => setSelectedOpForDiag(op)}
+                      className="px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 text-xs font-bold transition-colors flex items-center gap-1 self-start sm:self-center"
+                    >
+                      <Info className="w-3.5 h-3.5" />
+                      <span>Diagnostics</span>
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─── MODAL: CREATE REPOSITORY ─── */}
+      {createRepoModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-sky-500/10 text-sky-500 flex items-center justify-center">
+                  <FolderPlus className="w-4.5 h-4.5" />
+                </div>
+                <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100">
+                  Create GitHub Repository
+                </h3>
+              </div>
+              <button
+                onClick={() => setCreateRepoModalOpen(false)}
+                className="p-1.5 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300 rounded-lg"
               >
-                <option value="">Select a workspace...</option>
-                {workspaces.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.name} ({w.fileCount} files)
-                  </option>
-                ))}
-              </select>
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-2">
+            <form onSubmit={handleCreateRepo} className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-neutral-700 dark:text-neutral-300 block mb-1">
+                  Repository Name *
+                </label>
+                <input
+                  type="text"
+                  placeholder="vaultdrop-mobile"
+                  value={newRepoName}
+                  onChange={(e) => setNewRepoName(e.target.value)}
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-sky-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-neutral-700 dark:text-neutral-300 block mb-1">
+                  Description
+                </label>
+                <input
+                  type="text"
+                  placeholder="Created and synchronized via VaultDrop"
+                  value={newRepoDesc}
+                  onChange={(e) => setNewRepoDesc(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:border-sky-500"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-neutral-700 dark:text-neutral-300 block mb-1.5">
+                  Visibility
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setNewRepoPrivate(true)}
+                    className={`p-3 rounded-xl border flex items-center gap-2.5 transition-all ${
+                      newRepoPrivate
+                        ? 'border-sky-500 bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold'
+                        : 'border-neutral-200 dark:border-neutral-700 text-neutral-500'
+                    }`}
+                  >
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>Private</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewRepoPrivate(false)}
+                    className={`p-3 rounded-xl border flex items-center gap-2.5 transition-all ${
+                      !newRepoPrivate
+                        ? 'border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold'
+                        : 'border-neutral-200 dark:border-neutral-700 text-neutral-500'
+                    }`}
+                  >
+                    <Globe className="w-3.5 h-3.5" />
+                    <span>Public</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-neutral-700 dark:text-neutral-300 block mb-1">
+                    .gitignore Template
+                  </label>
+                  <select
+                    value={newRepoGitignore}
+                    onChange={(e) => setNewRepoGitignore(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 font-mono"
+                  >
+                    <option value="None">None</option>
+                    <option value="Node">Node</option>
+                    <option value="Python">Python</option>
+                    <option value="Go">Go</option>
+                    <option value="Rust">Rust</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-bold text-neutral-700 dark:text-neutral-300 block mb-1">
+                    Link Workspace
+                  </label>
+                  <select
+                    value={newRepoWorkspaceLink}
+                    onChange={(e) => setNewRepoWorkspaceLink(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100"
+                  >
+                    <option value="">None (Do not link)</option>
+                    {workspaces.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-neutral-200 dark:border-neutral-800">
+                <button
+                  type="button"
+                  onClick={() => setCreateRepoModalOpen(false)}
+                  className="px-4 py-2 font-semibold text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingRepo || !newRepoName.trim()}
+                  className="px-6 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-md transition-all disabled:opacity-50 flex items-center gap-2"
+                >
+                  {creatingRepo ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Creating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <FolderPlus className="w-3.5 h-3.5" />
+                      <span>Create Repository</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL: IMPORT REPOSITORY ─── */}
+      {importModalOpen && selectedRepoForImport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-teal-500/10 text-teal-500 flex items-center justify-center">
+                  <Download className="w-4.5 h-4.5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100">
+                    Import to VaultDrop
+                  </h3>
+                  <p className="text-[11px] text-neutral-500 font-mono">
+                    {selectedRepoForImport.fullName}
+                  </p>
+                </div>
+              </div>
               <button
-                type="button"
-                onClick={() => setSelectedRepoForLink(null)}
-                className="px-4 py-2.5 text-xs font-semibold text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                onClick={() => setImportModalOpen(false)}
+                className="p-1.5 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300 rounded-lg"
               >
-                Cancel
+                <X className="w-4 h-4" />
               </button>
-              <button
-                type="button"
-                onClick={handleLinkWorkspace}
-                disabled={!linkingWorkspaceId || linking}
-                className="px-6 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-sky-500/20"
-              >
-                {linking ? (
-                  <span className="flex items-center gap-2">
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    Linking...
-                  </span>
-                ) : (
-                  'Connect'
-                )}
-              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-neutral-700 dark:text-neutral-300 block mb-1">
+                  Workspace Name
+                </label>
+                <input
+                  type="text"
+                  value={importWorkspaceName}
+                  onChange={(e) => setImportWorkspaceName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-neutral-700 dark:text-neutral-300 block mb-1">
+                  Branch to Download
+                </label>
+                <input
+                  type="text"
+                  value={importBranch}
+                  onChange={(e) => setImportBranch(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 font-mono"
+                />
+              </div>
+
+              <div className="p-3 bg-teal-500/10 border border-teal-500/20 rounded-xl text-teal-700 dark:text-teal-300 text-[11px] leading-relaxed">
+                VaultDrop will fetch the branch archive directly from GitHub, calculate deterministic SHA-256 checksums, and generate a new workspace.
+              </div>
+
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-neutral-200 dark:border-neutral-800">
+                <button
+                  type="button"
+                  onClick={() => setImportModalOpen(false)}
+                  className="px-4 py-2 font-semibold text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleImportRepo}
+                  disabled={importing || !importWorkspaceName.trim()}
+                  className="px-6 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-white font-bold text-xs shadow-md transition-all disabled:opacity-50 flex items-center gap-2"
+                >
+                  {importing ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Downloading & Packaging...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Import Workspace</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
+      )}
+
+      {/* ─── MODAL: CONNECT WORKSPACE TO REPO ─── */}
+      {linkModalOpen && selectedRepoForLink && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-sky-500/10 text-sky-500 flex items-center justify-center">
+                  <Layers className="w-4.5 h-4.5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100">
+                    Connect Workspace
+                  </h3>
+                  <p className="text-[11px] text-neutral-500 font-mono">
+                    {selectedRepoForLink.fullName}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setLinkModalOpen(false)}
+                className="p-1.5 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-neutral-700 dark:text-neutral-300 block mb-1.5">
+                  Select Target Workspace
+                </label>
+                <select
+                  value={linkingWorkspaceId}
+                  onChange={(e) => setLinkingWorkspaceId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 font-mono"
+                >
+                  <option value="">Select a workspace...</option>
+                  {workspaces.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.name} ({w.fileCount} files)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-neutral-200 dark:border-neutral-800">
+                <button
+                  type="button"
+                  onClick={() => setLinkModalOpen(false)}
+                  className="px-4 py-2 font-semibold text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLinkWorkspace}
+                  disabled={linking || !linkingWorkspaceId}
+                  className="px-6 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-md transition-all disabled:opacity-50 flex items-center gap-2"
+                >
+                  {linking ? 'Connecting...' : 'Connect Workspace'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL: COMMITS & BRANCHES VIEWER ─── */}
+      {repoViewerModalOpen && selectedRepoForViewer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 max-w-xl w-full shadow-2xl space-y-4 max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between pb-2 border-b border-neutral-200 dark:border-neutral-800">
+              <div className="flex items-center gap-2">
+                <GitCommit className="w-5 h-5 text-sky-500" />
+                <div>
+                  <h3 className="text-sm font-bold text-neutral-900 dark:text-neutral-100 font-mono">
+                    {selectedRepoForViewer.fullName}
+                  </h3>
+                  <span className="text-[10px] text-neutral-400 font-mono">
+                    Branch: {repoViewerBranch}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setRepoViewerModalOpen(false)}
+                className="p-1.5 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto divide-y divide-neutral-100 dark:divide-neutral-800 text-xs">
+              {loadingRepoViewer ? (
+                <div className="py-10 text-center">
+                  <RefreshCw className="w-5 h-5 text-sky-500 animate-spin mx-auto mb-2" />
+                  <p className="text-neutral-400">Loading commit log...</p>
+                </div>
+              ) : repoViewerCommits.length === 0 ? (
+                <div className="py-10 text-center text-neutral-400">No commits found on this branch.</div>
+              ) : (
+                repoViewerCommits.map((c) => (
+                  <div key={c.sha} className="py-2.5 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-neutral-900 dark:text-neutral-100 mb-0.5">
+                        {c.message}
+                      </p>
+                      <div className="flex items-center gap-2 text-[10px] text-neutral-400 font-mono">
+                        <span>{c.authorName}</span>
+                        <span>·</span>
+                        <span>{formatRelativeTime(c.date)}</span>
+                      </div>
+                    </div>
+                    <span className="font-mono text-[11px] font-bold text-sky-500 bg-sky-500/10 px-2 py-0.5 rounded-md flex-shrink-0">
+                      {c.shortSha}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL: DIAGNOSTICS VIEWER ─── */}
+      {selectedOpForDiag && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between pb-2 border-b border-neutral-200 dark:border-neutral-800">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-rose-500" />
+                <h3 className="text-sm font-bold text-neutral-900 dark:text-neutral-100">
+                  Operation Failure Diagnostics
+                </h3>
+              </div>
+              <button
+                onClick={() => setSelectedOpForDiag(null)}
+                className="p-1.5 text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-300 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 font-mono">
+                {selectedOpForDiag.errorMessage || 'Operation encountered an unexpected failure.'}
+              </div>
+
+              {selectedOpForDiag.errorCode && (
+                <div className="flex items-center justify-between p-2 rounded-lg bg-neutral-100 dark:bg-neutral-800 font-mono text-[11px]">
+                  <span className="text-neutral-400">Error Code:</span>
+                  <strong className="text-neutral-800 dark:text-neutral-200">{selectedOpForDiag.errorCode}</strong>
+                </div>
+              )}
+
+              <div className="text-neutral-500 text-[11px] leading-relaxed">
+                Suggested Fix: Verify repository write permissions, ensure remote branch is up to date, or generate a fresh branch from the current head.
+              </div>
+
+              <div className="pt-3 flex justify-end">
+                <button
+                  onClick={() => setSelectedOpForDiag(null)}
+                  className="px-4 py-2 rounded-xl bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 font-bold text-xs"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL: COMMIT CHANGES ─── */}
+      {commitModalOpen && activeWorkspaceForCommit && activeWorkspaceForCommit.connectedRepo && (
+        <CommitModal
+          isOpen={commitModalOpen}
+          onClose={() => {
+            setCommitModalOpen(false);
+            setActiveWorkspaceForCommit(null);
+          }}
+          workspaceId={activeWorkspaceForCommit.id}
+          workspaceName={activeWorkspaceForCommit.name}
+          connectedRepo={activeWorkspaceForCommit.connectedRepo}
+          onCommitSuccess={() => {
+            fetchWorkspaces();
+            fetchOperations();
+          }}
+        />
       )}
     </div>
   );

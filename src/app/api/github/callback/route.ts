@@ -130,6 +130,7 @@ export async function GET(request: Request) {
         githubAvatarUrl: profile.avatar_url,
         githubInstallationId: installationId,
         githubAccountType: profile.type || 'User',
+        accessToken: userAccessToken,
         status: 'active',
         updatedAt: new Date(),
       },
@@ -140,6 +141,7 @@ export async function GET(request: Request) {
         githubAvatarUrl: profile.avatar_url,
         githubInstallationId: installationId,
         githubAccountType: profile.type || 'User',
+        accessToken: userAccessToken,
         status: 'active',
       },
     });

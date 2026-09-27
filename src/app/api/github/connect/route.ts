@@ -33,6 +33,7 @@ export async function GET(request: Request) {
     githubAuthUrl.searchParams.set('client_id', clientId);
     githubAuthUrl.searchParams.set('state', stateData);
     githubAuthUrl.searchParams.set('redirect_uri', callbackUrl);
+    githubAuthUrl.searchParams.set('scope', 'repo,read:user');
 
     const response = NextResponse.redirect(githubAuthUrl);
 

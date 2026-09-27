@@ -52,6 +52,28 @@ export const DEFAULT_EXCLUSION_RULES: ExclusionRule[] = [
   { id: 'mp4_files', pattern: '*.mp4', name: '*.mp4', category: 'Media', reason: 'Large video media file', enabled: true, defaultExcluded: true },
 ];
 
+export function isExcluded(relativePath: string): boolean {
+  const norm = relativePath.replace(/\\/g, '/');
+  const parts = norm.split('/');
+  return parts.some((p) => [
+    'node_modules',
+    '.next',
+    '.git',
+    '.vercel',
+    'dist',
+    'build',
+    'out',
+    '.turbo',
+    'coverage',
+    '__pycache__',
+    '.venv',
+    'venv',
+    '.cache',
+    '.DS_Store',
+    'Thumbs.db',
+  ].includes(p));
+}
+
 export interface FileScanItem {
   file: File;
   relativePath: string;

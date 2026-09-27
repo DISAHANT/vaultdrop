@@ -229,6 +229,24 @@ export async function POST(
       },
     });
 
+    // In-app notification on commit success
+    await prisma.notification.create({
+      data: {
+        recipientId: user.id,
+        type: 'github_commit_success',
+        title: 'GitHub commit successful',
+        message: `"${workspace.name}" committed to ${repoMapping.owner}/${repoMapping.repositoryName} (${branch})`,
+        workspaceId,
+        metadata: JSON.stringify({
+          commitSha: result.commitSha,
+          commitUrl: result.commitUrl,
+          branch: result.branch,
+          repository: `${repoMapping.owner}/${repoMapping.repositoryName}`,
+          filesCommitted: result.filesCommitted,
+        }),
+      },
+    }).catch(() => null);
+
     return NextResponse.json({
       success: true,
       commitSha: result.commitSha,
@@ -250,6 +268,23 @@ export async function POST(
       suggestedFix: 'Review technical details or check GitHub repository permissions.',
       retryable: true,
     };
+
+    // In-app notification on commit failure
+    await prisma.notification.create({
+      data: {
+        recipientId: user.id,
+        type: 'github_commit_failed',
+        title: 'GitHub commit failed',
+        message: `Failed to commit "${workspace.name}" to ${repoMapping.owner}/${repoMapping.repositoryName}: ${errorInfo.reason}`,
+        workspaceId,
+        metadata: JSON.stringify({
+          errorCode: errorInfo.errorCode,
+          reason: errorInfo.reason,
+          suggestedFix: errorInfo.suggestedFix,
+          repository: `${repoMapping.owner}/${repoMapping.repositoryName}`,
+        }),
+      },
+    }).catch(() => null);
 
     // Audit log failed commit
     await prisma.gitHubOperation.create({
