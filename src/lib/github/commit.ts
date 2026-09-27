@@ -176,8 +176,8 @@ export async function executeGitHubCommit(options: CommitOptions): Promise<Commi
     filesToProcess = files.slice(1);
   }
 
-  // Step 3: Create Git Blobs for remaining files
-  const treeItems: Array<{ path: string; mode: string; type: string; sha: string }> = [];
+  // Step 3: Prepare Git Tree items (use inline content for text files to avoid secondary rate limits)
+  const treeItems: Array<{ path: string; mode: string; type: string; sha?: string; content?: string }> = [];
 
   for (const file of filesToProcess) {
     const normalized = file.relativePath.replace(/\\/g, '/');
@@ -208,33 +208,45 @@ export async function executeGitHubCommit(options: CommitOptions): Promise<Commi
     }
 
     const isBinary = isBinaryFile(normalized, file.mimeType);
-    const content = isBinary ? buffer.toString('base64') : buffer.toString('utf-8');
-    const encoding = isBinary ? 'base64' : 'utf-8';
 
-    // Create Git Blob
-    const blobRes = await fetch(
-      `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/blobs`,
-      {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ content, encoding }),
-      }
-    );
-
-    if (!blobRes.ok) {
-      const err = await blobRes.json().catch(() => ({}));
-      throw new GitHubApiError(
-        parseGitHubError({ status: blobRes.status, ...err }, `Uploading Git Blob for "${normalized}"`)
+    if (isBinary || buffer.length > 512 * 1024) {
+      // Large or binary files: upload via Git Blobs API with throttling
+      const content = buffer.toString('base64');
+      const blobRes = await fetch(
+        `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/blobs`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ content, encoding: 'base64' }),
+        }
       );
-    }
 
-    const blobData = await blobRes.json();
-    treeItems.push({
-      path: normalized,
-      mode: '100644', // standard file
-      type: 'blob',
-      sha: blobData.sha,
-    });
+      if (!blobRes.ok) {
+        const err = await blobRes.json().catch(() => ({}));
+        throw new GitHubApiError(
+          parseGitHubError({ status: blobRes.status, ...err }, `Uploading Git Blob for "${normalized}"`)
+        );
+      }
+
+      const blobData = await blobRes.json();
+      treeItems.push({
+        path: normalized,
+        mode: '100644', // standard file
+        type: 'blob',
+        sha: blobData.sha,
+      });
+
+      // Brief delay to prevent secondary rate limiting on consecutive binary blobs
+      await new Promise((r) => setTimeout(r, 60));
+    } else {
+      // Text files: provide content directly in tree item (zero extra API requests!)
+      treeItems.push({
+        path: normalized,
+        mode: '100644',
+        type: 'blob',
+        content: buffer.toString('utf-8'),
+      });
+    }
   }
 
   // Step 4: Create Git Tree
