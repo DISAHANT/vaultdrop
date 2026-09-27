@@ -190,6 +190,35 @@ export async function POST(
         success: emailRes.success,
         simulated: emailRes.simulated,
       });
+
+      // ─── Create in-app notification for registered users ───
+      if (matchedUser) {
+        const senderName = user.name || user.email.split('@')[0];
+        const fileCount = workspace.totalFiles;
+        const sizeBytes = Number(workspace.totalSize);
+        const sizeMB = (sizeBytes / 1024 / 1024).toFixed(1);
+
+        await prisma.notification.create({
+          data: {
+            recipientId: matchedUser.id,
+            senderId: user.id,
+            type: 'workspace_shared',
+            title: `${senderName} sent you a workspace`,
+            message: `"${workspace.name}" — ${fileCount} files (${sizeMB} MB)${message ? `\n\n"${message}"` : ''}`,
+            workspaceId: workspace.id,
+            shareId: shareRecord.id,
+            metadata: JSON.stringify({
+              workspaceName: workspace.name,
+              fileCount,
+              sizeBytes,
+              shareCode: workspace.shareCode,
+              shareUrl,
+            }),
+          },
+        }).catch((err: any) => {
+          console.warn('[share] Failed to create notification:', err?.message);
+        });
+      }
     }
 
     return NextResponse.json({
@@ -232,13 +261,34 @@ export async function DELETE(
       return NextResponse.json({ error: 'Not authorized or share not found' }, { status: 403 });
     }
 
-    await prisma.workspaceShare.delete({
+    // Soft revoke instead of hard delete
+    await prisma.workspaceShare.update({
       where: { id: shareId },
+      data: {
+        status: 'revoked',
+        revokedAt: new Date(),
+      },
     });
+
+    // Notify recipient about revocation
+    if (share.recipientId) {
+      const senderName = user.name || user.email.split('@')[0];
+      await prisma.notification.create({
+        data: {
+          recipientId: share.recipientId,
+          senderId: user.id,
+          type: 'share_revoked',
+          title: `Access to "${share.workspace.name}" was revoked`,
+          message: `${senderName} revoked your access to the workspace "${share.workspace.name}".`,
+          workspaceId: share.workspaceId,
+          shareId: share.id,
+        },
+      }).catch(() => {});
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error('Delete workspace share error:', error);
+    console.error('Revoke workspace share error:', error);
     return NextResponse.json({ error: 'Failed to revoke share' }, { status: 500 });
   }
 }

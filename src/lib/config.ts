@@ -36,6 +36,8 @@ export const CONFIG = {
     LOOKUP: { windowMs: 60000, max: 60 },
     PASSWORD: { windowMs: 300000, max: 10 },
     AUTH: { windowMs: 900000, max: 15 },
+    GITHUB: { windowMs: 60000, max: 30 },
+    GITHUB_COMMIT: { windowMs: 60000, max: 5 },
   },
 
   // Allowed MIME types (empty = allow all)

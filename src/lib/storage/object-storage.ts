@@ -2,8 +2,114 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { getFilebaseClient, getFilebaseBucket } from '@/lib/filebase';
-import { PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { PutObjectCommand, GetObjectCommand, DeleteObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { Readable } from 'stream';
+
+/**
+ * Check if Filebase S3 is properly configured.
+ */
+export function isFilebaseConfigured(): boolean {
+  return !!(
+    process.env.FILEBASE_KEY &&
+    process.env.FILEBASE_SECRET &&
+    process.env.FILEBASE_BUCKET
+  );
+}
+
+/**
+ * Check if an object exists in storage.
+ * For production (Filebase), checks the S3 bucket.
+ * For development, checks local filesystem.
+ */
+export async function objectExists(fileKey: string): Promise<boolean> {
+  // 1. Check Filebase S3
+  if (isFilebaseConfigured()) {
+    try {
+      const s3 = getFilebaseClient();
+      const bucket = getFilebaseBucket();
+      await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: fileKey }));
+      return true;
+    } catch {
+      // Object does not exist or access denied
+    }
+  }
+
+  // 2. Check local filesystem (dev only)
+  const parts = fileKey.split('/').filter(Boolean);
+  const searchDirs = Array.from(
+    new Set([
+      getWritableStorageDir(),
+      path.join(process.cwd(), '.vaultdrop-storage'),
+      path.join(os.tmpdir(), '.vaultdrop-storage'),
+    ])
+  );
+
+  for (const baseDir of searchDirs) {
+    try {
+      const localPath = path.join(baseDir, ...parts);
+      if (fs.existsSync(localPath)) {
+        return true;
+      }
+    } catch {}
+  }
+
+  return false;
+}
+
+/**
+ * Get an object as a readable stream from storage (for streaming downloads).
+ * Returns the stream and content length, or null if not found.
+ */
+export async function getObjectStreamSafe(fileKey: string): Promise<{
+  stream: Readable;
+  contentLength: number;
+  contentType: string;
+} | null> {
+  // 1. Try Filebase S3
+  if (isFilebaseConfigured()) {
+    try {
+      const s3 = getFilebaseClient();
+      const bucket = getFilebaseBucket();
+      const res = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: fileKey }));
+      if (res.Body) {
+        return {
+          stream: res.Body as Readable,
+          contentLength: res.ContentLength || 0,
+          contentType: res.ContentType || 'application/octet-stream',
+        };
+      }
+    } catch (err: any) {
+      console.warn(`[storage] Failed to stream ${fileKey} from Filebase:`, err?.message);
+    }
+  }
+
+  // 2. Fall back to local file for dev
+  const parts = fileKey.split('/').filter(Boolean);
+  const searchDirs = Array.from(
+    new Set([
+      getWritableStorageDir(),
+      path.join(process.cwd(), '.vaultdrop-storage'),
+      path.join(os.tmpdir(), '.vaultdrop-storage'),
+    ])
+  );
+
+  for (const baseDir of searchDirs) {
+    try {
+      const localPath = path.join(baseDir, ...parts);
+      if (fs.existsSync(localPath)) {
+        const stats = fs.statSync(localPath);
+        const stream = fs.createReadStream(localPath);
+        return {
+          stream: stream as unknown as Readable,
+          contentLength: stats.size,
+          contentType: 'application/octet-stream',
+        };
+      }
+    } catch {}
+  }
+
+  return null;
+}
 
 let cachedWritableDir: string | null = null;
 

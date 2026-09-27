@@ -14,6 +14,15 @@ enum ShareStatus {
   DELETED
 }
 
+enum WorkspaceStatus {
+  CREATING
+  VERIFYING
+  PACKAGING
+  UPLOADING_PACKAGE
+  READY
+  FAILED
+}
+
 model User {
   id           String   @id @default(cuid())
   name         String?
@@ -31,6 +40,10 @@ model User {
   sentTransfers  DeviceTransfer[] @relation("SentTransfers")
   sentWorkspaceShares     WorkspaceShare[] @relation("SentWorkspaceShares")
   receivedWorkspaceShares WorkspaceShare[] @relation("ReceivedWorkspaceShares")
+  githubConnections       GitHubConnection[]
+  githubOperations        GitHubOperation[]
+  sentNotifications       Notification[] @relation("SentNotifications")
+  receivedNotifications   Notification[] @relation("ReceivedNotifications")
 
   @@map("users")
 }
@@ -86,46 +99,58 @@ model DeviceTransfer {
 }
 
 model Workspace {
-  id             String      @id @default(cuid())
-  ownerId        String?     @map("owner_id")
-  shareCode      String      @unique @map("share_code") @db.VarChar(20)
-  name           String      @db.VarChar(255)
-  description    String?     @db.Text
-  framework      String?     @db.VarChar(50) // e.g. "Next.js", "React", "Node.js", "Python"
-  language       String?     @db.VarChar(50) // e.g. "TypeScript", "JavaScript", "Python"
-  packageManager String?     @map("package_manager") @db.VarChar(50) // "npm" | "pnpm" | "yarn" | "bun"
-  totalFiles     Int         @default(0) @map("total_files")
-  totalSize      BigInt      @default(0) @map("total_size")
-  excludedCount  Int         @default(0) @map("excluded_count")
-  sensitiveCount Int         @default(0) @map("sensitive_count")
-  healthSummary  String?     @map("health_summary") @db.LongText // JSON static health report
-  skippedSummary String?     @map("skipped_summary") @db.LongText // JSON summary of skipped folders & reasons
-  status         ShareStatus @default(ACTIVE)
-  expiresAt      DateTime?   @map("expires_at")
-  createdAt      DateTime    @default(now()) @map("created_at")
-  updatedAt      DateTime    @updatedAt @map("updated_at")
+  id                String          @id @default(cuid())
+  ownerId           String?         @map("owner_id")
+  uploadSessionId   String?         @unique @map("upload_session_id") @db.VarChar(100)
+  shareCode         String          @unique @map("share_code") @db.VarChar(20)
+  name              String          @db.VarChar(255)
+  description       String?         @db.Text
+  framework         String?         @db.VarChar(50)
+  language          String?         @db.VarChar(50)
+  packageManager    String?         @map("package_manager") @db.VarChar(50)
+  totalFiles        Int             @default(0) @map("total_files")
+  totalSize         BigInt          @default(0) @map("total_size")
+  excludedCount     Int             @default(0) @map("excluded_count")
+  sensitiveCount    Int             @default(0) @map("sensitive_count")
+  healthSummary     String?         @map("health_summary") @db.LongText
+  skippedSummary    String?         @map("skipped_summary") @db.LongText
+  packageKey        String?         @map("package_key") @db.VarChar(500)
+  manifestKey       String?         @map("manifest_key") @db.VarChar(500)
+  packageChecksum   String?         @map("package_checksum") @db.VarChar(64)
+  packageSize       BigInt?         @map("package_size")
+  verifiedFileCount Int?            @map("verified_file_count")
+  workspaceStatus   WorkspaceStatus @default(CREATING) @map("workspace_status")
+  status            ShareStatus     @default(ACTIVE)
+  expiresAt         DateTime?       @map("expires_at")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
 
-  owner     User?               @relation(fields: [ownerId], references: [id], onDelete: SetNull)
-  files     WorkspaceFile[]
-  snapshots WorkspaceSnapshot[]
-  shares    WorkspaceShare[]
+  owner       User?               @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  files       WorkspaceFile[]
+  snapshots   WorkspaceSnapshot[]
+  shares      WorkspaceShare[]
+  githubRepos WorkspaceGitHubRepo[]
 
   @@index([ownerId])
   @@index([status])
+  @@index([workspaceStatus])
   @@index([createdAt])
   @@map("workspaces")
 }
 
 model WorkspaceShare {
-  id             String    @id @default(cuid())
-  workspaceId    String    @map("workspace_id")
-  senderId       String    @map("sender_id")
-  recipientEmail String    @map("recipient_email") @db.VarChar(255)
-  recipientId    String?   @map("recipient_id")
-  permission     String    @default("download") @db.VarChar(50) // 'view' | 'download'
-  message        String?   @db.VarChar(500)
-  status         String    @default("sent") @db.VarChar(50) // 'sent' | 'pending' | 'accepted'
-  createdAt      DateTime  @default(now()) @map("created_at")
+  id              String    @id @default(cuid())
+  workspaceId     String    @map("workspace_id")
+  senderId        String    @map("sender_id")
+  recipientEmail  String    @map("recipient_email") @db.VarChar(255)
+  recipientId     String?   @map("recipient_id")
+  permission      String    @default("download") @db.VarChar(50)
+  message         String?   @db.VarChar(500)
+  status          String    @default("sent") @db.VarChar(50) // 'sent' | 'pending' | 'received' | 'downloaded' | 'revoked' | 'expired'
+  downloadCount   Int       @default(0) @map("download_count")
+  downloadedAt    DateTime? @map("downloaded_at")
+  revokedAt       DateTime? @map("revoked_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   sender    User      @relation("SentWorkspaceShares", fields: [senderId], references: [id], onDelete: Cascade)
@@ -135,20 +160,23 @@ model WorkspaceShare {
   @@index([recipientEmail])
   @@index([recipientId])
   @@index([senderId])
+  @@index([status])
   @@map("workspace_shares")
 }
 
 model WorkspaceFile {
-  id           String   @id @default(cuid())
-  workspaceId  String   @map("workspace_id")
-  relativePath String   @map("relative_path") @db.VarChar(1000)
-  filename     String   @db.VarChar(255)
-  fileSize     BigInt   @map("file_size")
-  mimeType     String   @map("mime_type") @db.VarChar(100)
-  fileKey      String?  @map("file_key") @db.VarChar(500)
-  category     String   @default("code") @db.VarChar(50) // 'code' | 'config' | 'asset' | 'doc' | 'other'
-  isSensitive  Boolean  @default(false) @map("is_sensitive")
-  createdAt    DateTime @default(now()) @map("created_at")
+  id              String   @id @default(cuid())
+  workspaceId     String   @map("workspace_id")
+  relativePath    String   @map("relative_path") @db.VarChar(1000)
+  filename        String   @db.VarChar(255)
+  fileSize        BigInt   @map("file_size")
+  mimeType        String   @map("mime_type") @db.VarChar(100)
+  fileKey         String?  @map("file_key") @db.VarChar(500)
+  checksum        String?  @db.VarChar(64)
+  category        String   @default("code") @db.VarChar(50)
+  isSensitive     Boolean  @default(false) @map("is_sensitive")
+  uploadVerified  Boolean  @default(false) @map("upload_verified")
+  createdAt       DateTime @default(now()) @map("created_at")
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
@@ -156,6 +184,28 @@ model WorkspaceFile {
   @@index([category])
   @@index([fileKey])
   @@map("workspace_files")
+}
+
+model Notification {
+  id          String    @id @default(cuid())
+  recipientId String    @map("recipient_id")
+  senderId    String?   @map("sender_id")
+  type        String    @db.VarChar(50) // 'workspace_shared' | 'workspace_downloaded' | 'share_revoked' | 'system'
+  title       String    @db.VarChar(255)
+  message     String    @db.Text
+  workspaceId String?   @map("workspace_id")
+  shareId     String?   @map("share_id")
+  metadata    String?   @db.Text // JSON with additional data
+  readAt      DateTime? @map("read_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  recipient User  @relation("ReceivedNotifications", fields: [recipientId], references: [id], onDelete: Cascade)
+  sender    User? @relation("SentNotifications", fields: [senderId], references: [id], onDelete: SetNull)
+
+  @@index([recipientId])
+  @@index([recipientId, readAt])
+  @@index([createdAt])
+  @@map("notifications")
 }
 
 model WorkspaceSnapshot {
@@ -333,4 +383,93 @@ model UploadChunk {
   @@unique([uploadId, fileIndex, chunkIndex])
   @@index([uploadId])
   @@map("upload_chunks")
+}
+
+// ─── GitHub Integration Models ───
+
+model GitHubConnection {
+  id                   String   @id @default(cuid())
+  vaultdropUserId      String   @map("vaultdrop_user_id")
+  githubUserId         Int      @map("github_user_id")
+  githubLogin          String   @map("github_login") @db.VarChar(100)
+  githubAvatarUrl      String?  @map("github_avatar_url") @db.VarChar(500)
+  githubInstallationId Int?     @map("github_installation_id")
+  githubAccountType    String   @default("User") @map("github_account_type") @db.VarChar(30)
+  status               String   @default("active") @db.VarChar(30) // 'active' | 'revoked' | 'expired'
+  connectedAt          DateTime @default(now()) @map("connected_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [vaultdropUserId], references: [id], onDelete: Cascade)
+
+  @@unique([vaultdropUserId, githubUserId])
+  @@index([vaultdropUserId])
+  @@index([githubUserId])
+  @@index([githubInstallationId])
+  @@map("github_connections")
+}
+
+model WorkspaceGitHubRepo {
+  id              String   @id @default(cuid())
+  workspaceId     String   @map("workspace_id")
+  vaultdropUserId String   @map("vaultdrop_user_id")
+  installationId  Int      @map("installation_id")
+  repositoryId    Int      @map("repository_id")
+  owner           String   @db.VarChar(100)
+  repositoryName  String   @map("repository_name") @db.VarChar(200)
+  defaultBranch   String   @default("main") @map("default_branch") @db.VarChar(100)
+  lastCommitSha   String?  @map("last_commit_sha") @db.VarChar(64)
+  lastSyncAt      DateTime? @map("last_sync_at")
+  connectedAt     DateTime @default(now()) @map("connected_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, repositoryId])
+  @@index([workspaceId])
+  @@index([vaultdropUserId])
+  @@index([repositoryId])
+  @@map("workspace_github_repos")
+}
+
+model GitHubWebhookEvent {
+  id          String   @id @default(cuid())
+  deliveryId  String   @unique @map("delivery_id") @db.VarChar(100)
+  eventType   String   @map("event_type") @db.VarChar(50)
+  action      String?  @db.VarChar(50)
+  repositoryId Int?    @map("repository_id")
+  status      String   @default("received") @db.VarChar(30) // 'received' | 'processed' | 'ignored' | 'failed'
+  payloadHash String?  @map("payload_hash") @db.VarChar(64)
+  errorMessage String? @map("error_message") @db.Text
+  receivedAt  DateTime @default(now()) @map("received_at")
+  processedAt DateTime? @map("processed_at")
+
+  @@index([eventType])
+  @@index([repositoryId])
+  @@index([receivedAt])
+  @@map("github_webhook_events")
+}
+
+model GitHubOperation {
+  id              String    @id @default(cuid())
+  vaultdropUserId String    @map("vaultdrop_user_id")
+  workspaceId     String?   @map("workspace_id")
+  repositoryId    Int?      @map("repository_id")
+  repositoryName  String?   @map("repository_name") @db.VarChar(200)
+  operation       String    @db.VarChar(30) // CONNECT, INSTALL, LIST_REPOSITORIES, ANALYZE, COMMIT, PULL, WEBHOOK, SYNC, DISCONNECT
+  status          String    @default("started") @db.VarChar(30) // 'started' | 'success' | 'failed' | 'cancelled'
+  commitSha       String?   @map("commit_sha") @db.VarChar(64)
+  filesChanged    Int?      @map("files_changed")
+  errorCode       String?   @map("error_code") @db.VarChar(20)
+  errorMessage    String?   @map("error_message") @db.Text
+  metadata        String?   @db.LongText // safe JSON metadata (no secrets)
+  startedAt       DateTime  @default(now()) @map("started_at")
+  completedAt     DateTime? @map("completed_at")
+
+  user User @relation(fields: [vaultdropUserId], references: [id], onDelete: Cascade)
+
+  @@index([vaultdropUserId])
+  @@index([workspaceId])
+  @@index([operation])
+  @@index([startedAt])
+  @@map("github_operations")
 }

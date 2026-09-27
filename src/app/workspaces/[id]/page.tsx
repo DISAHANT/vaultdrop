@@ -29,6 +29,7 @@ import {
 import { getCategoryBadge, FileCategory } from '@/lib/workspace/categories';
 import SendToDeviceModal from '@/components/send-to-device-modal';
 import SendToPeopleModal from '@/components/send-to-people-modal';
+import { WorkspaceGitHubPanel } from '@/components/github/workspace-github-panel';
 import { toast } from 'sonner';
 
 interface WorkspaceDetails {
@@ -282,6 +283,9 @@ export default function WorkspaceDetailPage({ params }: { params: { id: string }
           </div>
         </div>
       </div>
+
+      {/* GitHub Integration Panel */}
+      <WorkspaceGitHubPanel workspaceId={workspace.id} workspaceName={workspace.name} />
 
       {/* Grid: Health & Snapshots */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

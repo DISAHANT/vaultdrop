@@ -72,6 +72,9 @@ export async function GET(
       sharesCount: workspace.shares.length,
       skippedReport,
       healthReport,
+      workspaceStatus: workspace.workspaceStatus,
+      packageChecksum: workspace.packageChecksum,
+      verifiedFileCount: workspace.verifiedFileCount,
       createdAt: workspace.createdAt,
       updatedAt: workspace.updatedAt,
       files: workspace.files.map((f) => ({
@@ -82,6 +85,8 @@ export async function GET(
         mimeType: f.mimeType,
         category: f.category,
         isSensitive: f.isSensitive,
+        checksum: f.checksum,
+        uploadVerified: f.uploadVerified,
         createdAt: f.createdAt,
       })),
       snapshots: workspace.snapshots.map((s) => ({

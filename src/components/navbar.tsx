@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { ThemeToggle } from './theme-toggle';
+import { NotificationBell } from './notification-bell';
 import {
   Shield,
   FolderCode,
@@ -20,11 +21,15 @@ import {
   LogOut,
   User,
   Layers,
+  GitBranch,
+  ArrowLeftRight,
 } from 'lucide-react';
 
 const mainNavLinks = [
   { href: '/codedrop', label: 'CodeDrop', icon: FolderCode, color: 'text-cyan-500' },
   { href: '/workspaces', label: 'Workspaces', icon: Layers, color: 'text-indigo-500' },
+  { href: '/transfers', label: 'Transfers', icon: ArrowLeftRight, color: 'text-amber-500' },
+  { href: '/github', label: 'GitHub', icon: GitBranch, color: 'text-sky-500' },
   { href: '/devices', label: 'Devices', icon: Laptop, color: 'text-teal-500' },
   { href: '/clipboard', label: 'Clipboard', icon: Clipboard, color: 'text-violet-500' },
   { href: '/sync', label: 'Live Sync', icon: Radio, color: 'text-emerald-500' },
@@ -91,6 +96,7 @@ export function Navbar() {
           {/* Right Action Icons & Auth */}
           <div className="flex items-center gap-2">
             <ThemeToggle />
+            <NotificationBell />
 
             {session ? (
               <div className="hidden sm:flex items-center gap-2">

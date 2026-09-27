@@ -64,6 +64,9 @@ export async function GET() {
         ownerName: ws.owner?.name || ws.owner?.email || 'Developer',
         sharesCount: ws.shares.length,
         snapshotsCount: ws.snapshots.length,
+        workspaceStatus: ws.workspaceStatus,
+        packageChecksum: ws.packageChecksum,
+        verifiedFileCount: ws.verifiedFileCount,
         createdAt: ws.createdAt,
         updatedAt: ws.updatedAt,
       };

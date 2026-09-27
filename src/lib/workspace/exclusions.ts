@@ -92,9 +92,37 @@ export function analyzeWorkspaceFiles(
 
   const enabledRules = activeRules.filter((r) => r.enabled);
 
+  // ─── Root folder detection and stripping ───
+  // When a user selects "my-project/", webkitRelativePath gives us "my-project/src/app.tsx".
+  // We want to store "src/app.tsx" — the workspace root name is metadata, not part of paths.
+  const rawPaths = files.map(f => ((f as any).webkitRelativePath || f.name).replace(/\\/g, '/'));
+  let commonRoot: string | null = null;
+
+  if (rawPaths.length > 0) {
+    const firstSegments = rawPaths.map(p => {
+      const parts = p.split('/').filter(Boolean);
+      return parts.length > 1 ? parts[0] : null;
+    });
+    // ALL files must have a folder prefix for root detection to work
+    if (!firstSegments.some(s => s === null)) {
+      const uniqueRoots = new Set(firstSegments);
+      if (uniqueRoots.size === 1) {
+        commonRoot = Array.from(uniqueRoots)[0]!;
+      }
+    }
+  }
+
   for (const file of files) {
     const rawPath = (file as any).webkitRelativePath || file.name;
-    const normalized = rawPath.replace(/\\/g, '/');
+    let normalized = rawPath.replace(/\\/g, '/');
+
+    // Strip common root folder if detected
+    if (commonRoot) {
+      const prefix = commonRoot + '/';
+      if (normalized.startsWith(prefix)) {
+        normalized = normalized.slice(prefix.length);
+      }
+    }
 
     // Track folders
     const parts = normalized.split('/');
