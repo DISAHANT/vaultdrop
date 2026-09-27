@@ -74,11 +74,11 @@ export async function executeGitHubCommit(options: CommitOptions): Promise<Commi
   let baseTreeSha: string | null = null;
   let isNewRepo = false;
 
-  const refUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/ref/heads/${encodeURIComponent(branch)}`;
+  const refUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/refs/heads/${encodeURIComponent(branch)}`;
   const refRes = await fetch(refUrl, { headers });
 
-  if (refRes.status === 404) {
-    // Branch does not exist or empty repository
+  if (refRes.status === 404 || refRes.status === 409) {
+    // Branch does not exist or empty repository (GitHub returns 409: "Git Repository is empty.")
     const repoInfoRes = await fetch(
       `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`,
       { headers }
@@ -108,10 +108,78 @@ export async function executeGitHubCommit(options: CommitOptions): Promise<Commi
     baseTreeSha = commitData.tree.sha;
   }
 
-  // Step 3: Create Git Blobs for all included files
+  // Handle empty repository initialization
+  let filesToProcess = files;
+
+  if (isNewRepo) {
+    // Empty repository cannot accept Git Data API (/git/blobs) directly.
+    // Initialize repository and default branch using the first file via Contents API.
+    const firstFile = files[0];
+    const firstNormalized = firstFile.relativePath.replace(/\\/g, '/');
+    let firstBuffer: Buffer | null = null;
+    if (firstFile.fileKey) {
+      firstBuffer = await getObjectBufferSafe(firstFile.fileKey);
+    }
+    if (!firstBuffer) {
+      firstBuffer = Buffer.from('');
+    }
+
+    if (!allowSecretsOverride) {
+      const secretFinding = scanContentForSecrets(firstBuffer, firstNormalized);
+      if (secretFinding) {
+        throw new GitHubApiError({
+          step: 'Security Check',
+          statusCode: 422,
+          errorCode: 'SECRET_DETECTED',
+          reason: `Potential credential or secret detected in "${firstNormalized}": ${secretFinding.rule}.`,
+          suggestedFix: 'Remove the secret from the file or exclude it from commit before proceeding.',
+          retryable: false,
+        });
+      }
+    }
+
+    const initUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${encodeURIComponent(firstNormalized).replace(/%2F/g, '/')}`;
+    const initRes = await fetch(initUrl, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({
+        message: commitMessage.trim() || 'Initial commit via VaultDrop',
+        content: firstBuffer.toString('base64'),
+        branch,
+      }),
+    });
+
+    if (!initRes.ok) {
+      const err = await initRes.json().catch(() => ({}));
+      throw new GitHubApiError(parseGitHubError({ status: initRes.status, ...err }, 'Initializing Empty Repository'));
+    }
+
+    const initData = await initRes.json();
+    baseCommitSha = initData.commit.sha;
+    baseTreeSha = initData.commit.tree.sha;
+
+    if (files.length === 1) {
+      const timeTakenMs = Date.now() - startTime;
+      return {
+        success: true,
+        commitSha: baseCommitSha || '',
+        commitUrl: `https://github.com/${owner}/${repo}/commit/${baseCommitSha}`,
+        branch,
+        filesCommitted: 1,
+        timeTakenMs,
+        stats: {
+          addedOrModified: 1,
+        },
+      };
+    }
+
+    filesToProcess = files.slice(1);
+  }
+
+  // Step 3: Create Git Blobs for remaining files
   const treeItems: Array<{ path: string; mode: string; type: string; sha: string }> = [];
 
-  for (const file of files) {
+  for (const file of filesToProcess) {
     const normalized = file.relativePath.replace(/\\/g, '/');
     let buffer: Buffer | null = null;
 
@@ -216,40 +284,19 @@ export async function executeGitHubCommit(options: CommitOptions): Promise<Commi
   const newCommitData = await newCommitRes.json();
   const newCommitSha = newCommitData.sha;
 
-  // Step 6: Update or create branch reference
-  if (isNewRepo) {
-    // Create new ref for default branch
-    const createRefRes = await fetch(
-      `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/refs`,
-      {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          ref: `refs/heads/${branch}`,
-          sha: newCommitSha,
-        }),
-      }
-    );
+  // Step 6: Update branch reference
+  const updateRefRes = await fetch(refUrl, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify({
+      sha: newCommitSha,
+      force: false,
+    }),
+  });
 
-    if (!createRefRes.ok) {
-      const err = await createRefRes.json().catch(() => ({}));
-      throw new GitHubApiError(parseGitHubError({ status: createRefRes.status, ...err }, 'Creating Initial Branch'));
-    }
-  } else {
-    // Update existing branch ref
-    const updateRefRes = await fetch(refUrl, {
-      method: 'PATCH',
-      headers,
-      body: JSON.stringify({
-        sha: newCommitSha,
-        force: false,
-      }),
-    });
-
-    if (!updateRefRes.ok) {
-      const err = await updateRefRes.json().catch(() => ({}));
-      throw new GitHubApiError(parseGitHubError({ status: updateRefRes.status, ...err }, 'Updating Branch Head'));
-    }
+  if (!updateRefRes.ok) {
+    const err = await updateRefRes.json().catch(() => ({}));
+    throw new GitHubApiError(parseGitHubError({ status: updateRefRes.status, ...err }, 'Updating Branch Head'));
   }
 
   const timeTakenMs = Date.now() - startTime;
@@ -260,10 +307,10 @@ export async function executeGitHubCommit(options: CommitOptions): Promise<Commi
     commitSha: newCommitSha,
     commitUrl,
     branch,
-    filesCommitted: treeItems.length,
+    filesCommitted: files.length,
     timeTakenMs,
     stats: {
-      addedOrModified: treeItems.length,
+      addedOrModified: files.length,
       baseCommitSha: baseCommitSha || undefined,
     },
   };
