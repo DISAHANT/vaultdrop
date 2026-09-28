@@ -237,7 +237,7 @@ function LiveSyncHub() {
           <Sparkles className="w-3.5 h-3.5 animate-pulse" />
           <span>Real-Time Live Sync 2.0</span>
         </div>
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight bg-gradient-to-r from-zinc-100 via-emerald-300 to-zinc-400 bg-clip-text text-transparent">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-neutral-900 dark:text-transparent dark:bg-clip-text dark:bg-gradient-to-r dark:from-zinc-100 dark:via-emerald-300 dark:to-zinc-400">
           Cross-Device Shared Clipboard
         </h1>
         <p className="text-sm sm:text-base max-w-2xl mx-auto" style={{ color: 'var(--text-secondary)' }}>

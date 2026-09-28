@@ -524,23 +524,23 @@ function GitHubDashboardContent() {
   return (
     <div className="min-h-screen pt-24 pb-20 px-4 sm:px-6 max-w-7xl mx-auto space-y-8">
       {/* ─── Hero Header ─── */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-neutral-900 via-neutral-900 to-sky-950 dark:from-neutral-950 dark:via-neutral-950 dark:to-sky-950 p-5 sm:p-10 border border-neutral-800">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-sky-50/40 to-indigo-50/30 dark:from-neutral-950 dark:via-neutral-950 dark:to-sky-950/40 p-5 sm:p-10 border border-neutral-200/90 dark:border-neutral-800 shadow-sm dark:shadow-none">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="min-w-0 flex-1">
             <div className="flex items-start sm:items-center gap-3 mb-2">
-              <div className="w-12 h-12 rounded-2xl bg-sky-500/15 border border-sky-500/25 flex items-center justify-center backdrop-blur-sm flex-shrink-0">
-                <GitBranch className="w-6 h-6 text-sky-400" />
+              <div className="w-12 h-12 rounded-2xl bg-sky-500/10 dark:bg-sky-500/15 border border-sky-500/20 dark:border-sky-500/25 flex items-center justify-center backdrop-blur-sm flex-shrink-0">
+                <GitBranch className="w-6 h-6 text-sky-600 dark:text-sky-400" />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white tracking-tight break-words">
+                  <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-neutral-900 dark:text-white tracking-tight break-words">
                     GitHub Developer Workspace
                   </h1>
-                  <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-sky-500/15 text-sky-400 border border-sky-500/20 uppercase tracking-widest whitespace-nowrap">
+                  <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-sky-500/10 dark:bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/20 uppercase tracking-widest whitespace-nowrap">
                     SYNC 2.0
                   </span>
                 </div>
-                <p className="text-xs sm:text-sm text-neutral-400 mt-0.5">
+                <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400 mt-0.5">
                   Move code seamlessly between VaultDrop workspaces and GitHub repositories
                 </p>
               </div>
@@ -552,14 +552,14 @@ function GitHubDashboardContent() {
               <>
                 <button
                   onClick={() => fetchStatus()}
-                  className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-neutral-400 hover:text-white hover:bg-white/10 transition-all"
+                  className="p-2.5 rounded-xl bg-neutral-100 hover:bg-neutral-200/80 dark:bg-white/5 border border-neutral-200 dark:border-white/10 text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white dark:hover:bg-white/10 transition-all"
                   title="Refresh status"
                 >
                   <RefreshCw className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setCreateRepoModalOpen(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-md shadow-sky-500/20 transition-all"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-xs shadow-sm shadow-sky-500/20 transition-all"
                 >
                   <FolderPlus className="w-4 h-4" />
                   <span>+ Create Repository</span>
@@ -567,7 +567,7 @@ function GitHubDashboardContent() {
                 <button
                   onClick={handleDisconnect}
                   disabled={disconnecting}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 text-xs font-semibold transition-all disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200/80 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-500/20 text-xs font-semibold transition-all disabled:opacity-50"
                 >
                   <Unlink className="w-3.5 h-3.5" />
                   <span>{disconnecting ? '...' : 'Disconnect'}</span>
@@ -576,7 +576,7 @@ function GitHubDashboardContent() {
             ) : (
               <a
                 href="/api/github/connect"
-                className="inline-flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-500 text-white font-bold text-sm hover:shadow-lg transition-all"
+                className="inline-flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-600 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all"
               >
                 <GitBranch className="w-4 h-4" />
                 <span>Connect GitHub Account</span>

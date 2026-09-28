@@ -50,7 +50,7 @@ export function Navbar() {
           <VaultDropLogo href="/" size="md" withGlow={true} />
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-1 p-1 rounded-2xl bg-neutral-100/90 dark:bg-white/[0.03] border border-neutral-200/90 dark:border-white/[0.07] shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)]">
+          <nav className="hidden lg:flex items-center gap-1 p-1 rounded-2xl bg-neutral-100/80 dark:bg-white/[0.03] border border-neutral-200/80 dark:border-white/[0.07]">
             {mainNavLinks.map(({ href, label, icon: Icon, color }) => {
               const active = pathname === href || pathname.startsWith(href + '/');
               return (
@@ -59,11 +59,11 @@ export function Navbar() {
                   href={href}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-150 select-none ${
                     active
-                      ? 'text-neutral-900 dark:text-white bg-white dark:bg-white/[0.12] shadow-sm dark:shadow-[0_2px_8px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.22)] border border-neutral-200/90 dark:border-white/10'
+                      ? 'text-neutral-900 dark:text-white bg-white dark:bg-white/[0.12] shadow-sm border border-neutral-200/90 dark:border-white/10'
                       : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/[0.05]'
                   }`}
                 >
-                  <Icon className={`w-3.5 h-3.5 ${active ? color : 'text-neutral-400'}`} />
+                  <Icon className={`w-3.5 h-3.5 ${active ? color : 'text-neutral-500 dark:text-neutral-400'}`} />
                   <span>{label}</span>
                 </Link>
               );
@@ -74,11 +74,11 @@ export function Navbar() {
                 href="/dashboard"
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-150 select-none ${
                   pathname.startsWith('/dashboard')
-                    ? 'text-neutral-900 dark:text-white bg-white dark:bg-white/[0.12] shadow-sm dark:shadow-[0_2px_8px_rgba(0,0,0,0.6),inset_0_1px_0_rgba(255,255,255,0.22)] border border-neutral-200/90 dark:border-white/10'
+                    ? 'text-neutral-900 dark:text-white bg-white dark:bg-white/[0.12] shadow-sm border border-neutral-200/90 dark:border-white/10'
                     : 'text-neutral-600 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:bg-white/60 dark:hover:bg-white/[0.05]'
                 }`}
               >
-                <LayoutDashboard className={`w-3.5 h-3.5 ${pathname.startsWith('/dashboard') ? 'text-amber-400' : 'text-neutral-400'}`} />
+                <LayoutDashboard className={`w-3.5 h-3.5 ${pathname.startsWith('/dashboard') ? 'text-amber-500 dark:text-amber-400' : 'text-neutral-500 dark:text-neutral-400'}`} />
                 <span>Dashboard</span>
               </Link>
             )}
@@ -93,9 +93,9 @@ export function Navbar() {
               <div className="hidden sm:flex items-center gap-2">
                 <Link
                   href="/dashboard"
-                  className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-neutral-100/90 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] text-xs font-medium text-neutral-800 dark:text-neutral-200 hover:border-sky-500/40 dark:hover:border-sky-500/30 transition-all"
+                  className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-neutral-100/90 dark:bg-white/[0.04] border border-neutral-200 dark:border-white/10 text-xs font-medium text-neutral-800 dark:text-neutral-200 hover:border-sky-500/40 dark:hover:border-sky-500/30 transition-all"
                 >
-                  <User className="w-3.5 h-3.5 text-sky-400" />
+                  <User className="w-3.5 h-3.5 text-sky-500 dark:text-sky-400" />
                   <span className="max-w-[120px] truncate">{session.user?.name || session.user?.email}</span>
                 </Link>
                 <button
@@ -109,7 +109,7 @@ export function Navbar() {
             ) : (
               <Link
                 href="/login"
-                className="hidden sm:inline-flex items-center gap-1.5 text-xs py-2 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold transition-all shadow-[0_4px_12px_-2px_rgba(56,189,248,0.3),inset_0_1px_0_rgba(255,255,255,0.25)] hover:shadow-[0_6px_16px_-2px_rgba(56,189,248,0.45)] hover:-translate-y-0.5"
+                className="hidden sm:inline-flex items-center gap-1.5 text-xs py-2 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold transition-all shadow-sm shadow-sky-500/25 hover:shadow-md hover:-translate-y-0.5"
               >
                 <LogIn className="w-3.5 h-3.5" />
                 <span>Sign In</span>

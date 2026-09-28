@@ -24,29 +24,29 @@ export default function HomePage() {
     <div className="relative overflow-hidden min-h-screen">
       {/* Background Ambient Refractive Sheen */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-12 left-1/4 w-[600px] h-[600px] rounded-full opacity-[0.08] dark:opacity-[0.06] blur-[140px] bg-gradient-to-br from-sky-400 via-indigo-500 to-transparent" />
-        <div className="absolute top-48 right-1/4 w-[500px] h-[500px] rounded-full opacity-[0.06] dark:opacity-[0.05] blur-[140px] bg-gradient-to-br from-amber-400 via-orange-500 to-transparent" />
-        <div className="absolute bottom-28 left-1/3 w-[500px] h-[500px] rounded-full opacity-[0.06] dark:opacity-[0.04] blur-[140px] bg-gradient-to-br from-teal-400 to-transparent" />
+        <div className="absolute top-12 left-1/4 w-[600px] h-[600px] rounded-full opacity-[0.03] dark:opacity-[0.06] blur-[140px] bg-gradient-to-br from-sky-400 via-indigo-500 to-transparent" />
+        <div className="absolute top-48 right-1/4 w-[500px] h-[500px] rounded-full opacity-[0.02] dark:opacity-[0.05] blur-[140px] bg-gradient-to-br from-amber-400 via-orange-500 to-transparent" />
+        <div className="absolute bottom-28 left-1/3 w-[500px] h-[500px] rounded-full opacity-[0.02] dark:opacity-[0.04] blur-[140px] bg-gradient-to-br from-teal-400 to-transparent" />
       </div>
 
       {/* Hero Section */}
       <section className="relative pt-20 pb-20 md:pt-32 md:pb-28 px-4 sm:px-6 max-w-7xl mx-auto z-10 text-center">
-        {/* Floating 3D Glass Emblem with Subtle Ambient Illumination */}
+        {/* Floating 3D Glass Emblem */}
         <div className="mb-6 flex justify-center animate-fade-in">
-          <div className="relative p-2.5 rounded-3xl bg-neutral-950/60 dark:bg-black/80 backdrop-blur-2xl border border-white/20 dark:border-white/15 shadow-[0_12px_40px_-5px_rgba(0,0,0,0.8),inset_0_1px_1px_0_rgba(255,255,255,0.4),0_0_25px_-5px_rgba(56,189,248,0.25)] hover:scale-105 hover:shadow-[0_16px_50px_-5px_rgba(0,0,0,0.9),inset_0_1px_2px_0_rgba(255,255,255,0.5),0_0_35px_-3px_rgba(56,189,248,0.4)] transition-all duration-300 cursor-pointer">
-            <VaultDropLogo size="xl" showText={false} withGlow={false} />
+          <div className="transition-transform duration-300 hover:scale-105 cursor-pointer">
+            <VaultDropLogo size="xl" showText={false} withGlow={true} />
           </div>
         </div>
 
-        {/* Feature Announcement Pill with Skeuomorphic Glass Bevel */}
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold bg-white/80 dark:bg-white/[0.04] text-neutral-800 dark:text-sky-300 border border-neutral-200/80 dark:border-white/10 shadow-[0_2px_8px_rgba(0,0,0,0.06),inset_0_1px_0_rgba(255,255,255,0.2)] mb-8">
-          <Sparkles className="w-3.5 h-3.5 text-sky-400 animate-pulse" />
+        {/* Feature Announcement Pill with Refined Glass Accent */}
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold bg-white/90 dark:bg-white/[0.04] text-neutral-800 dark:text-sky-300 border border-neutral-200/90 dark:border-white/10 shadow-sm mb-8">
+          <Sparkles className="w-3.5 h-3.5 text-sky-500 dark:text-sky-400 animate-pulse" />
           <span>Cross-Device Bridge · Workspaces, GitHub Sync & Live Clipboard</span>
         </div>
 
         <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight text-neutral-900 dark:text-white max-w-4xl mx-auto mb-6 leading-[1.08]">
           Your personal bridge <br />
-          <span className="bg-gradient-to-r from-sky-400 via-indigo-200 to-amber-300 bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-sky-500 via-indigo-600 to-amber-500 dark:from-sky-400 dark:via-indigo-300 dark:to-amber-300 bg-clip-text text-transparent">
             between your devices.
           </span>
         </h1>
@@ -56,11 +56,11 @@ export default function HomePage() {
           Zero dependency installations, intelligent safety filtering, and verified device encryption.
         </p>
 
-        {/* Tactile Action Buttons with Skeuomorphic Highlights */}
+        {/* Tactile Action Buttons with Refined Modern Elevation */}
         <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 max-w-3xl mx-auto mb-20">
           <Link
             href="/codedrop"
-            className="skeuo-btn inline-flex items-center gap-2 px-7 py-3 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-sm tracking-normal shadow-lg shadow-sky-500/20"
+            className="skeuo-btn inline-flex items-center gap-2 px-7 py-3 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-bold text-sm tracking-normal shadow-md shadow-sky-500/20"
           >
             <FolderCode className="w-4 h-4" />
             <span>Open CodeDrop</span>
@@ -68,7 +68,7 @@ export default function HomePage() {
 
           <Link
             href="/github"
-            className="skeuo-btn inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-neutral-800 to-neutral-900 hover:from-neutral-700 hover:to-neutral-800 text-white font-bold text-sm border border-white/10 shadow-lg"
+            className="skeuo-btn inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-neutral-900 hover:bg-neutral-800 dark:bg-white/[0.08] dark:hover:bg-white/[0.12] text-white dark:text-neutral-100 font-bold text-sm border border-neutral-800 dark:border-white/15 shadow-sm"
           >
             <GitBranch className="w-4 h-4 text-sky-400" />
             <span>GitHub Sync 2.0</span>

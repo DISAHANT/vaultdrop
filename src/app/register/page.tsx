@@ -58,7 +58,7 @@ export default function RegisterPage() {
           <VaultDropLogo size="lg" showText={false} withGlow={true} />
         </div>
         <h1 className="text-2xl font-extrabold mb-1 tracking-tight text-neutral-900 dark:text-white">
-          Create <span className="bg-gradient-to-r from-sky-400 to-indigo-400 bg-clip-text text-transparent">Account</span>
+          Create <span className="bg-gradient-to-r from-sky-600 to-indigo-600 dark:from-sky-400 dark:to-indigo-400 bg-clip-text text-transparent">Account</span>
         </h1>
         <p className="text-xs text-neutral-500 dark:text-neutral-400">
           Get device sync, workspaces, and personal file bridge

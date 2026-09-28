@@ -83,10 +83,9 @@
     max-width: 100vw;
     background-color: var(--bg-primary);
     background-image: 
-      radial-gradient(circle at 10% 10%, rgba(99, 102, 241, 0.07) 0%, transparent 40%),
-      radial-gradient(circle at 90% 15%, rgba(6, 182, 212, 0.07) 0%, transparent 40%),
-      radial-gradient(circle at 50% 60%, rgba(244, 63, 94, 0.03) 0%, transparent 50%),
-      radial-gradient(circle at 85% 85%, rgba(16, 185, 129, 0.05) 0%, transparent 45%);
+      radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.04) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(6, 182, 212, 0.04) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.03) 0px, transparent 50%);
     background-attachment: fixed;
     color: var(--text-primary);
     min-height: 100vh;
@@ -96,9 +95,8 @@
   .dark body, body.dark {
     background-color: #07090e;
     background-image: 
-      radial-gradient(circle at 20% 10%, rgba(56, 189, 248, 0.035) 0%, transparent 45%),
-      radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.035) 0%, transparent 45%),
-      radial-gradient(circle at 50% 80%, rgba(245, 158, 11, 0.02) 0%, transparent 50%);
+      radial-gradient(at 20% 0%, rgba(56, 189, 248, 0.035) 0px, transparent 50%),
+      radial-gradient(at 80% 0%, rgba(99, 102, 241, 0.035) 0px, transparent 50%);
   }
 
   ::selection {
@@ -140,46 +138,75 @@
     box-shadow: 0 18px 45px -10px rgba(0, 0, 0, 0.9), 0 0 22px -3px rgba(56, 189, 248, 0.15), inset 0 1px 0 0 rgba(255, 255, 255, 0.18);
   }
 
-  /* Tactile Skeuomorphic Glass Panel */
+  /* Refined Glass Panel */
   .glass-panel {
-    background: rgba(11, 15, 25, 0.80);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 10px 32px 0 rgba(0, 0, 0, 0.7), inset 0 1px 0 0 rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border-primary);
+    box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.05);
     border-radius: 1.25rem;
   }
+  .dark .glass-panel {
+    background: rgba(11, 15, 25, 0.80);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 24px 0 rgba(0, 0, 0, 0.6), inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+  }
 
-  /* Tactile Button with Subtle Skeuomorphic Highlights */
+  /* Refined Button with Subtle Tactile Feedback */
   .skeuo-btn {
-    box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.24), inset 0 -1px 0 0 rgba(0, 0, 0, 0.35);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
     transition: all 0.15s ease-out;
   }
+  .dark .skeuo-btn {
+    box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.14);
+  }
   .skeuo-btn:hover {
-    box-shadow: 0 4px 12px -1px rgba(0, 0, 0, 0.6), inset 0 1px 0 0 rgba(255, 255, 255, 0.35), inset 0 -1px 0 0 rgba(0, 0, 0, 0.4);
+    box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.12);
+    transform: translateY(-0.5px);
+  }
+  .dark .skeuo-btn:hover {
+    box-shadow: 0 4px 12px -1px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
     transform: translateY(-0.5px);
   }
   .skeuo-btn:active {
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), inset 0 1px 2px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
     transform: translateY(0.5px);
   }
 
-  /* Debossed Inset Input */
+  /* Clean Adaptive Input */
   .skeuo-input {
+    background: #ffffff;
+    border: 1px solid var(--border-primary);
+    color: var(--text-primary);
+    box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.04);
+  }
+  .dark .skeuo-input {
     background: rgba(8, 12, 20, 0.85);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+    color: #ffffff;
   }
   .skeuo-input:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+  }
+  .dark .skeuo-input:focus {
     border-color: rgba(56, 189, 248, 0.5);
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5), 0 0 15px -2px rgba(56, 189, 248, 0.2);
+    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.15);
   }
 
-  /* Hardware Tactile Badge */
+  /* Refined Badge */
   .skeuo-badge {
+    background: rgba(15, 23, 42, 0.04);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    color: var(--text-secondary);
+  }
+  .dark .skeuo-badge {
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.10);
+    color: var(--text-secondary);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   }
 
   /* ─── BUTTON SYSTEM ─── */
