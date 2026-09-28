@@ -578,17 +578,17 @@ export default function CodeDropPage() {
               <span>Select Project Directory</span>
             </div>
 
-            <div className="mt-8 pt-6 border-t border-neutral-200 dark:border-neutral-800 grid grid-cols-3 gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+            <div className="mt-8 pt-6 border-t border-neutral-200 dark:border-neutral-800 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-neutral-500 dark:text-neutral-400">
               <div className="flex items-center justify-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
                 <span>Auto-skips dependencies</span>
               </div>
               <div className="flex items-center justify-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
                 <span>Never executes code</span>
               </div>
               <div className="flex items-center justify-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 text-amber-500" />
+                <Lock className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
                 <span>.env secret warnings</span>
               </div>
             </div>
@@ -620,16 +620,16 @@ export default function CodeDropPage() {
           {/* Top Project Summary Card */}
           <div className="bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 rounded-3xl p-6 sm:p-8 shadow-xl">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-neutral-200 dark:border-neutral-800">
-              <div>
+              <div className="min-w-0 flex-1">
                 <span className="text-xs font-semibold uppercase tracking-wider text-cyan-600 dark:text-cyan-400">
                   Project Workspace
                 </span>
-                <div className="flex items-center gap-3 mt-1">
+                <div className="flex items-center gap-3 mt-1 min-w-0">
                   <input
                     type="text"
                     value={projectName}
                     onChange={(e) => setProjectName(e.target.value)}
-                    className="text-2xl sm:text-3xl font-extrabold text-neutral-900 dark:text-neutral-100 bg-transparent border-b border-dashed border-neutral-300 dark:border-neutral-700 focus:border-cyan-500 focus:outline-none px-1"
+                    className="w-full max-w-full text-xl sm:text-3xl font-extrabold text-neutral-900 dark:text-neutral-100 bg-transparent border-b border-dashed border-neutral-300 dark:border-neutral-700 focus:border-cyan-500 focus:outline-none px-1"
                   />
                 </div>
               </div>

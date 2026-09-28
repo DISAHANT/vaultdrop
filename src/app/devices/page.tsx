@@ -206,11 +206,11 @@ export default function DevicesPage() {
                       : 'border-[var(--border-primary)] hover:border-neutral-400 dark:hover:border-white/20 bg-[var(--bg-card)]'
                   }`}
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
                     {/* Device Icon with status dot */}
-                    <div className="relative">
-                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-[var(--bg-secondary)] border border-[var(--border-primary)]">
-                        <Icon className="w-6 h-6 text-[var(--text-primary)]" />
+                    <div className="relative flex-shrink-0">
+                      <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center bg-[var(--bg-secondary)] border border-[var(--border-primary)]">
+                        <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-[var(--text-primary)]" />
                       </div>
                       <span
                         className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[var(--bg-card)] ${
@@ -225,9 +225,9 @@ export default function DevicesPage() {
                     </div>
 
                     {/* Metadata */}
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       {isEditing ? (
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <input
                             type="text"
                             value={editingName}
@@ -253,12 +253,12 @@ export default function DevicesPage() {
                           </button>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-bold text-base text-[var(--text-primary)] truncate">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <h3 className="font-bold text-sm sm:text-base text-[var(--text-primary)] truncate max-w-[160px] sm:max-w-xs">
                             {device.deviceName}
                           </h3>
                           {isCurrent && (
-                            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[var(--accent-light)] text-[var(--accent)] border border-[var(--accent)]/30">
+                            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[var(--accent-light)] text-[var(--accent)] border border-[var(--accent)]/30 whitespace-nowrap">
                               This Device
                             </span>
                           )}

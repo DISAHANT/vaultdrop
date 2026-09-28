@@ -500,30 +500,30 @@ export default function GitHubDashboardPage() {
   return (
     <div className="min-h-screen pt-24 pb-20 px-4 sm:px-6 max-w-7xl mx-auto space-y-8">
       {/* ─── Hero Header ─── */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-neutral-900 via-neutral-900 to-sky-950 dark:from-neutral-950 dark:via-neutral-950 dark:to-sky-950 p-8 sm:p-10 border border-neutral-800">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-neutral-900 via-neutral-900 to-sky-950 dark:from-neutral-950 dark:via-neutral-950 dark:to-sky-950 p-5 sm:p-10 border border-neutral-800">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-12 h-12 rounded-2xl bg-sky-500/15 border border-sky-500/25 flex items-center justify-center backdrop-blur-sm">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start sm:items-center gap-3 mb-2">
+              <div className="w-12 h-12 rounded-2xl bg-sky-500/15 border border-sky-500/25 flex items-center justify-center backdrop-blur-sm flex-shrink-0">
                 <GitBranch className="w-6 h-6 text-sky-400" />
               </div>
-              <div>
-                <div className="flex items-center gap-2.5">
-                  <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white tracking-tight break-words">
                     GitHub Developer Workspace
                   </h1>
-                  <span className="px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold bg-sky-500/15 text-sky-400 border border-sky-500/20 uppercase tracking-widest">
+                  <span className="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-sky-500/15 text-sky-400 border border-sky-500/20 uppercase tracking-widest whitespace-nowrap">
                     SYNC 2.0
                   </span>
                 </div>
-                <p className="text-sm text-neutral-400 mt-0.5">
+                <p className="text-xs sm:text-sm text-neutral-400 mt-0.5">
                   Move code seamlessly between VaultDrop workspaces and GitHub repositories
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             {isConnected ? (
               <>
                 <button
@@ -563,28 +563,28 @@ export default function GitHubDashboardPage() {
       </div>
 
       {/* ─── Connected Account Status Cards ─── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
         {/* Identity Card */}
-        <div className="bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 rounded-2xl p-5 shadow-lg flex items-center justify-between">
-          <div className="flex items-center gap-3.5">
+        <div className="bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 rounded-2xl p-4 sm:p-5 shadow-lg flex items-center justify-between">
+          <div className="flex items-center gap-3.5 min-w-0">
             {statusData?.connection?.githubAvatarUrl ? (
               <img
                 src={statusData.connection.githubAvatarUrl}
                 alt={statusData.connection.githubLogin}
-                className="w-12 h-12 rounded-xl border-2 border-sky-500/20 object-cover shadow-sm"
+                className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl border-2 border-sky-500/20 object-cover shadow-sm flex-shrink-0"
               />
             ) : (
-              <div className="w-12 h-12 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-400">
+              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-400 flex-shrink-0">
                 <GitBranch className="w-6 h-6" />
               </div>
             )}
-            <div>
+            <div className="min-w-0">
               <span className="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-widest block">
                 Connected User
               </span>
               {isConnected ? (
-                <div className="flex items-center gap-2 mt-0.5">
-                  <strong className="text-sm font-bold text-neutral-900 dark:text-neutral-100 font-mono">
+                <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 flex-wrap">
+                  <strong className="text-xs sm:text-sm font-bold text-neutral-900 dark:text-neutral-100 font-mono truncate max-w-[140px] sm:max-w-none">
                     @{statusData?.connection?.githubLogin}
                   </strong>
                   <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-500">
@@ -597,20 +597,20 @@ export default function GitHubDashboardPage() {
             </div>
           </div>
           {isConnected && (
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" title="Connected" />
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" title="Connected" />
           )}
         </div>
 
         {/* Installation Status */}
-        <div className="bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 rounded-2xl p-5 shadow-lg flex items-center justify-between">
-          <div>
+        <div className="bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 rounded-2xl p-4 sm:p-5 shadow-lg flex items-center justify-between">
+          <div className="min-w-0">
             <span className="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-widest block mb-1">
               App Permissions
             </span>
             {hasInstallation ? (
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 truncate">
                   Full Read & Write Active
                 </span>
               </div>
@@ -622,17 +622,17 @@ export default function GitHubDashboardPage() {
                 className="text-xs font-bold text-amber-500 hover:underline flex items-center gap-1"
               >
                 <span>Complete Installation</span>
-                <ExternalLink className="w-3 h-3" />
+                <ExternalLink className="w-3 h-3 flex-shrink-0" />
               </a>
             ) : (
               <span className="text-xs text-neutral-400">Requires connection</span>
             )}
           </div>
-          <span className="text-[10px] font-mono text-neutral-400 uppercase">VAULTDROP SYNC</span>
+          <span className="text-[10px] font-mono text-neutral-400 uppercase flex-shrink-0 ml-2">VAULTDROP SYNC</span>
         </div>
 
         {/* Statistics */}
-        <div className="bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 rounded-2xl p-5 shadow-lg flex items-center justify-between">
+        <div className="bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 rounded-2xl p-4 sm:p-5 shadow-lg flex items-center justify-between">
           <div>
             <span className="text-[10px] font-mono font-bold text-neutral-400 uppercase tracking-widest block mb-1">
               Developer Scope
@@ -642,15 +642,15 @@ export default function GitHubDashboardPage() {
               <span><strong>{workspaces.length}</strong> workspaces</span>
             </div>
           </div>
-          <Layers className="w-6 h-6 text-sky-500/40" />
+          <Layers className="w-6 h-6 text-sky-500/40 flex-shrink-0" />
         </div>
       </div>
 
       {/* ─── Navigation Tabs ─── */}
-      <div className="flex border-b border-neutral-200 dark:border-neutral-800 gap-4">
+      <div className="flex border-b border-neutral-200 dark:border-neutral-800 gap-2 sm:gap-4 overflow-x-auto no-scrollbar whitespace-nowrap">
         <button
           onClick={() => setActiveTab('repos')}
-          className={`pb-3.5 text-sm font-bold flex items-center gap-2 border-b-2 transition-all ${
+          className={`pb-3.5 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-all flex-shrink-0 ${
             activeTab === 'repos'
               ? 'border-sky-500 text-sky-600 dark:text-sky-400'
               : 'border-transparent text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'
@@ -662,7 +662,7 @@ export default function GitHubDashboardPage() {
 
         <button
           onClick={() => setActiveTab('workspaces')}
-          className={`pb-3.5 text-sm font-bold flex items-center gap-2 border-b-2 transition-all ${
+          className={`pb-3.5 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-all flex-shrink-0 ${
             activeTab === 'workspaces'
               ? 'border-sky-500 text-sky-600 dark:text-sky-400'
               : 'border-transparent text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'
@@ -674,7 +674,7 @@ export default function GitHubDashboardPage() {
 
         <button
           onClick={() => setActiveTab('activity')}
-          className={`pb-3.5 text-sm font-bold flex items-center gap-2 border-b-2 transition-all ${
+          className={`pb-3.5 text-xs sm:text-sm font-bold flex items-center gap-2 border-b-2 transition-all flex-shrink-0 ${
             activeTab === 'activity'
               ? 'border-sky-500 text-sky-600 dark:text-sky-400'
               : 'border-transparent text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200'
@@ -741,15 +741,17 @@ export default function GitHubDashboardPage() {
                   >
                     <div>
                       <div className="flex items-center justify-between gap-2 mb-2">
-                        <span className="font-bold text-neutral-900 dark:text-neutral-100 font-mono text-sm truncate">
-                          {repo.fullName}
-                        </span>
+                        <div className="min-w-0 flex-1">
+                          <span className="font-bold text-neutral-900 dark:text-neutral-100 font-mono text-sm truncate block">
+                            {repo.fullName}
+                          </span>
+                        </div>
                         {repo.private ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-neutral-200 dark:bg-neutral-700 text-neutral-600 dark:text-neutral-300 flex-shrink-0">
                             <Lock className="w-2.5 h-2.5" /> Private
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex-shrink-0">
                             <Globe className="w-2.5 h-2.5" /> Public
                           </span>
                         )}
@@ -851,9 +853,9 @@ export default function GitHubDashboardPage() {
             <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
               {workspaces.map((ws) => (
                 <div key={ws.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <strong className="text-sm font-bold text-neutral-900 dark:text-neutral-100 font-mono">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <strong className="text-sm font-bold text-neutral-900 dark:text-neutral-100 font-mono break-all">
                         {ws.name}
                       </strong>
                       <span className="text-[10px] text-neutral-400 font-mono">
@@ -862,9 +864,9 @@ export default function GitHubDashboardPage() {
                     </div>
 
                     {ws.connectedRepo ? (
-                      <div className="flex items-center gap-2 text-xs text-neutral-500">
-                        <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-mono font-semibold">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
+                      <div className="flex items-center gap-2 text-xs text-neutral-500 flex-wrap">
+                        <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-mono font-semibold break-all">
+                          <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
                           <span>{ws.connectedRepo.owner}/{ws.connectedRepo.repositoryName}</span>
                         </span>
                         <span className="text-[10px] font-mono text-neutral-400">
@@ -955,8 +957,8 @@ export default function GitHubDashboardPage() {
             <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
               {operations.map((op) => (
                 <div key={op.id} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                  <div className="flex items-start gap-3">
-                    <div className={`p-2 rounded-xl mt-0.5 ${
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    <div className={`p-2 rounded-xl mt-0.5 flex-shrink-0 ${
                       op.status === 'success'
                         ? 'bg-emerald-500/10 text-emerald-500'
                         : op.status === 'failed'
@@ -971,9 +973,9 @@ export default function GitHubDashboardPage() {
                         <Activity className="w-4 h-4" />
                       )}
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="font-bold text-neutral-900 dark:text-neutral-100 font-mono uppercase">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                        <span className="font-bold text-neutral-900 dark:text-neutral-100 font-mono uppercase whitespace-nowrap">
                           {op.operation}
                         </span>
                         <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold ${
@@ -986,12 +988,12 @@ export default function GitHubDashboardPage() {
                           {op.status}
                         </span>
                         {op.repositoryName && (
-                          <span className="text-neutral-400 font-mono">
+                          <span className="text-neutral-400 font-mono break-all">
                             {op.repositoryName}
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-3 text-[11px] text-neutral-400 font-mono">
+                      <div className="flex items-center gap-3 text-[11px] text-neutral-400 font-mono flex-wrap">
                         <span>{formatRelativeTime(op.startedAt)}</span>
                         {op.commitSha && (
                           <span>Commit: <strong className="text-sky-500">{op.commitSha.slice(0, 7)}</strong></span>

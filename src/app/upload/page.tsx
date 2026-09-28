@@ -705,7 +705,7 @@ export default function UploadPage() {
                       <p className="text-xs font-mono text-neutral-500 dark:text-neutral-400">{formatBytes(f.file.size)}</p>
                     </div>
                     {!uploading && (
-                      <button onClick={(e) => { e.stopPropagation(); removeFile(f.id); }} className="opacity-0 group-hover:opacity-100 p-2 rounded-xl hover:bg-rose-500/10 text-neutral-400 hover:text-rose-400 transition-all cursor-pointer">
+                      <button onClick={(e) => { e.stopPropagation(); removeFile(f.id); }} className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 p-2 rounded-xl hover:bg-rose-500/10 text-neutral-400 hover:text-rose-400 transition-all cursor-pointer flex-shrink-0">
                         <X className="w-4 h-4" />
                       </button>
                     )}

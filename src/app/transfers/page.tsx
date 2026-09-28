@@ -295,19 +295,19 @@ export default function TransfersPage() {
             ) : (
               uploads.map((upload) => (
                 <div key={upload.id} className="group bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4 hover:shadow-md transition-all">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center flex-shrink-0">
                         <FolderCode className="w-5 h-5 text-indigo-500" />
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <Link
                           href={`/workspaces/${upload.id}`}
                           className="text-sm font-bold text-neutral-900 dark:text-neutral-100 hover:text-indigo-500 transition-colors truncate block"
                         >
                           {upload.name}
                         </Link>
-                        <div className="flex items-center gap-2 mt-0.5 text-[11px] text-neutral-400">
+                        <div className="flex flex-wrap items-center gap-2 mt-0.5 text-[11px] text-neutral-400">
                           <span>{upload.fileCount} files</span>
                           <span>·</span>
                           <span>{formatBytes(upload.totalBytes)}</span>
@@ -322,7 +322,7 @@ export default function TransfersPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap self-start sm:self-center">
                       {getStatusBadge(upload.workspaceStatus)}
                       {upload.packageChecksum && (
                         <span className="text-[10px] text-emerald-500 font-mono" title={`Checksum: ${upload.packageChecksum}`}>
@@ -353,16 +353,16 @@ export default function TransfersPage() {
             ) : (
               sent.map((item) => (
                 <div key={item.id} className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4 hover:shadow-md transition-all">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className="w-10 h-10 rounded-lg bg-sky-500/10 flex items-center justify-center flex-shrink-0">
                         <Send className="w-5 h-5 text-sky-500" />
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="text-sm font-bold text-neutral-900 dark:text-neutral-100 truncate">
                           {item.workspaceName}
                         </div>
-                        <div className="flex items-center gap-2 mt-0.5 text-[11px] text-neutral-400">
+                        <div className="flex flex-wrap items-center gap-2 mt-0.5 text-[11px] text-neutral-400">
                           <span>To: <span className="text-neutral-600 dark:text-neutral-300">{item.recipientName || item.recipientEmail}</span></span>
                           <span>·</span>
                           <span>{item.fileCount} files</span>
@@ -373,7 +373,7 @@ export default function TransfersPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap self-start sm:self-center">
                       {getShareStatusBadge(item.status)}
                       {item.downloadCount > 0 && (
                         <span className="text-[10px] text-emerald-500 font-mono">
@@ -397,16 +397,16 @@ export default function TransfersPage() {
             ) : (
               received.map((item) => (
                 <div key={item.id} className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl p-4 hover:shadow-md transition-all">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className="w-10 h-10 rounded-lg bg-teal-500/10 flex items-center justify-center flex-shrink-0">
                         <Inbox className="w-5 h-5 text-teal-500" />
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="text-sm font-bold text-neutral-900 dark:text-neutral-100 truncate">
                           {item.workspaceName}
                         </div>
-                        <div className="flex items-center gap-2 mt-0.5 text-[11px] text-neutral-400">
+                        <div className="flex flex-wrap items-center gap-2 mt-0.5 text-[11px] text-neutral-400">
                           <span>From: <span className="text-neutral-600 dark:text-neutral-300">{item.senderName || item.senderEmail}</span></span>
                           <span>·</span>
                           <span>Owner: {item.ownerName}</span>
@@ -422,7 +422,7 @@ export default function TransfersPage() {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap self-start sm:self-center">
                       {getShareStatusBadge(item.status)}
                       {item.workspaceStatus === 'READY' && item.permission === 'download' && (
                         <button

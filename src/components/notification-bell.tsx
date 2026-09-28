@@ -161,7 +161,7 @@ export function NotificationBell() {
 
       {/* Notification Center Panel */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-[420px] max-w-[92vw] max-h-[540px] bg-white/95 dark:bg-neutral-900/95 backdrop-blur-2xl border border-neutral-200/80 dark:border-neutral-800 rounded-3xl shadow-2xl z-50 overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="fixed inset-x-3 top-16 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full mt-2 sm:w-[420px] max-w-full sm:max-w-md max-h-[82vh] sm:max-h-[540px] bg-white/95 dark:bg-neutral-900/95 backdrop-blur-2xl border border-neutral-200/80 dark:border-neutral-800 rounded-3xl shadow-2xl z-50 overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-2 duration-200">
           {/* Header */}
           <div className="p-4 pb-3 border-b border-neutral-200/60 dark:border-neutral-800/60 flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -345,7 +345,7 @@ export function NotificationBell() {
                         )}
 
                         {/* Actions / Deep links */}
-                        <div className="flex items-center gap-3 mt-2.5">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-2.5">
                           {notif.workspaceId && (
                             <Link
                               href={`/workspaces/${notif.workspaceId}`}

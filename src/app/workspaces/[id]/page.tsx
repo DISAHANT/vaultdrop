@@ -181,103 +181,105 @@ export default function WorkspaceDetailPage({ params }: { params: { id: string }
   return (
     <div className="min-h-screen pt-24 pb-20 px-4 sm:px-6 max-w-7xl mx-auto space-y-8">
       {/* Top Navigation Breadcrumb */}
-      <div className="flex items-center gap-2 text-xs text-neutral-500">
-        <Link href="/workspaces" className="hover:text-neutral-800 dark:hover:text-neutral-200 flex items-center gap-1">
+      <div className="flex items-center gap-2 text-xs text-neutral-500 overflow-hidden">
+        <Link href="/workspaces" className="hover:text-neutral-800 dark:hover:text-neutral-200 flex items-center gap-1 flex-shrink-0">
           <ArrowLeft className="w-3.5 h-3.5" />
-          <span>All Workspaces</span>
+          <span>Workspaces</span>
         </Link>
-        <span>/</span>
-        <span className="font-semibold text-neutral-800 dark:text-neutral-200">{workspace.name}</span>
+        <span className="flex-shrink-0">/</span>
+        <span className="font-semibold text-neutral-800 dark:text-neutral-200 truncate">{workspace.name}</span>
       </div>
 
       {/* Main Header Card */}
-      <div className="bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 rounded-3xl p-6 sm:p-8 shadow-xl">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-neutral-200 dark:border-neutral-800">
-          <div className="flex items-start gap-4">
-            <div className="p-3 rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">
-              <FolderCode className="w-8 h-8" />
+      <div className="bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 rounded-3xl p-4 sm:p-8 shadow-xl">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 pb-6 border-b border-neutral-200 dark:border-neutral-800">
+          <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
+            <div className="p-2.5 sm:p-3 rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20 flex-shrink-0">
+              <FolderCode className="w-6 h-6 sm:w-8 sm:h-8" />
             </div>
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-neutral-900 dark:text-neutral-100">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-neutral-900 dark:text-neutral-100 break-all sm:break-words">
                   {workspace.name}
                 </h1>
-                {health?.framework && (
-                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
-                    {health.framework}
-                  </span>
-                )}
-                {health?.language && (
-                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20">
-                    {health.language}
-                  </span>
-                )}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {health?.framework && (
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 whitespace-nowrap">
+                      {health.framework}
+                    </span>
+                  )}
+                  {health?.language && (
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-semibold bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20 whitespace-nowrap">
+                      {health.language}
+                    </span>
+                  )}
+                </div>
               </div>
-              <p className="text-xs sm:text-sm text-neutral-500 max-w-xl">
+              <p className="text-xs sm:text-sm text-neutral-500 max-w-xl break-words">
                 {workspace.description || 'Developer project workspace uploaded via CodeDrop'}
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full md:w-auto">
             <button
               onClick={() => setShowSnapshotModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-100/70 dark:bg-neutral-800/70 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-xs font-semibold transition-all text-neutral-800 dark:text-neutral-200 shadow-sm"
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-neutral-300 dark:border-neutral-700 bg-neutral-100/70 dark:bg-neutral-800/70 hover:bg-neutral-200 dark:hover:bg-neutral-700 text-xs font-semibold transition-all text-neutral-800 dark:text-neutral-200 shadow-sm text-center"
             >
-              <Camera className="w-4 h-4 text-indigo-500" />
-              <span>Create Snapshot</span>
+              <Camera className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+              <span>Snapshot</span>
             </button>
 
             <button
               onClick={() => setSendToPeopleOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-xs font-semibold transition-all text-cyan-700 dark:text-cyan-300 shadow-sm"
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-xs font-semibold transition-all text-cyan-700 dark:text-cyan-300 shadow-sm text-center"
             >
-              <Users className="w-4 h-4 text-cyan-500" />
-              <span>Send to People</span>
+              <Users className="w-3.5 h-3.5 text-cyan-500 flex-shrink-0" />
+              <span>Share</span>
             </button>
 
             <button
               onClick={() => setSendModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-neutral-800 hover:bg-slate-50 dark:hover:bg-neutral-700 text-xs font-semibold transition-all text-slate-800 dark:text-neutral-200 shadow-sm"
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-neutral-800 hover:bg-slate-50 dark:hover:bg-neutral-700 text-xs font-semibold transition-all text-slate-800 dark:text-neutral-200 shadow-sm text-center"
             >
-              <Send className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-              <span>Send to Device</span>
+              <Send className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 flex-shrink-0" />
+              <span>Send Device</span>
             </button>
 
             <a
               href={`/api/workspaces/${workspace.id}/download`}
               download={`${workspace.name}.zip`}
-              className="btn-primary text-xs py-2 px-4"
+              className="btn-primary text-xs py-2.5 px-3 inline-flex items-center justify-center gap-1.5 text-center"
             >
-              <Download className="w-4 h-4" />
+              <Download className="w-3.5 h-3.5 flex-shrink-0" />
               <span>Download ZIP</span>
             </a>
           </div>
         </div>
 
         {/* Stats Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6 text-xs">
-          <div>
-            <span className="text-neutral-400 block mb-0.5">Workspace Files</span>
-            <span className="text-lg font-bold text-neutral-900 dark:text-neutral-100 font-mono">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 pt-5 text-xs">
+          <div className="p-3 rounded-2xl bg-neutral-50/70 dark:bg-neutral-800/40 border border-neutral-200/50 dark:border-neutral-800/60">
+            <span className="text-[10px] sm:text-xs text-neutral-400 block mb-0.5">Workspace Files</span>
+            <span className="text-base sm:text-lg font-bold text-neutral-900 dark:text-neutral-100 font-mono">
               {workspace.fileCount.toLocaleString()}
             </span>
           </div>
-          <div>
-            <span className="text-neutral-400 block mb-0.5">Total Size</span>
-            <span className="text-lg font-bold text-neutral-900 dark:text-neutral-100 font-mono">
+          <div className="p-3 rounded-2xl bg-neutral-50/70 dark:bg-neutral-800/40 border border-neutral-200/50 dark:border-neutral-800/60">
+            <span className="text-[10px] sm:text-xs text-neutral-400 block mb-0.5">Total Size</span>
+            <span className="text-base sm:text-lg font-bold text-neutral-900 dark:text-neutral-100 font-mono">
               {formatBytes(workspace.totalBytes)}
             </span>
           </div>
-          <div>
-            <span className="text-neutral-400 block mb-0.5">Dependencies Skipped</span>
-            <span className="text-lg font-bold text-rose-500 font-mono">
+          <div className="p-3 rounded-2xl bg-neutral-50/70 dark:bg-neutral-800/40 border border-neutral-200/50 dark:border-neutral-800/60">
+            <span className="text-[10px] sm:text-xs text-neutral-400 block mb-0.5">Excluded</span>
+            <span className="text-base sm:text-lg font-bold text-rose-500 font-mono">
               {workspace.skippedCount.toLocaleString()}
             </span>
           </div>
-          <div>
-            <span className="text-neutral-400 block mb-0.5">Snapshots Saved</span>
-            <span className="text-lg font-bold text-indigo-500 font-mono">
+          <div className="p-3 rounded-2xl bg-neutral-50/70 dark:bg-neutral-800/40 border border-neutral-200/50 dark:border-neutral-800/60">
+            <span className="text-[10px] sm:text-xs text-neutral-400 block mb-0.5">Snapshots</span>
+            <span className="text-base sm:text-lg font-bold text-indigo-500 font-mono">
               {workspace.snapshots.length}
             </span>
           </div>

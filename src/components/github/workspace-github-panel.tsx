@@ -250,18 +250,18 @@ export function WorkspaceGitHubPanel({ workspaceId, workspaceName }: WorkspaceGi
         <div className="absolute inset-0 bg-gradient-to-br from-sky-500/[0.02] to-indigo-500/[0.02] dark:from-sky-500/[0.03] dark:to-indigo-500/[0.03]" />
 
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
-          <div className="flex items-start gap-4">
-            <div className="p-3.5 rounded-2xl bg-gradient-to-br from-sky-500/10 to-indigo-500/10 text-sky-500 border border-sky-500/15">
+          <div className="flex items-start gap-4 min-w-0 flex-1">
+            <div className="p-3.5 rounded-2xl bg-gradient-to-br from-sky-500/10 to-indigo-500/10 text-sky-500 border border-sky-500/15 flex-shrink-0">
               <GitBranch className="w-6 h-6" />
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100 flex items-center gap-2.5">
                 <span>GitHub Developer Workspace</span>
               </h3>
               <p className="text-xs text-neutral-500 max-w-lg mt-1 leading-relaxed">
                 Connect your GitHub account to enable direct workspace commits, branch management, CI/CD tracking, and repository synchronization.
               </p>
-              <div className="flex items-center gap-3 mt-3 text-[10px] text-neutral-400">
+              <div className="flex items-center gap-3 mt-3 text-[10px] text-neutral-400 flex-wrap">
                 <span className="flex items-center gap-1">
                   <ShieldCheck className="w-3 h-3 text-emerald-500" />
                   Deterministic Checksums
@@ -294,8 +294,8 @@ export function WorkspaceGitHubPanel({ workspaceId, workspaceName }: WorkspaceGi
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.02] to-sky-500/[0.02]" />
 
           <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
-            <div className="flex items-start gap-4">
-              <div className="relative">
+            <div className="flex items-start gap-4 min-w-0 flex-1">
+              <div className="relative flex-shrink-0">
                 <div className="p-3.5 rounded-2xl bg-sky-500/10 text-sky-500 border border-sky-500/15">
                   <GitBranch className="w-6 h-6" />
                 </div>
@@ -303,8 +303,8 @@ export function WorkspaceGitHubPanel({ workspaceId, workspaceName }: WorkspaceGi
                   <CheckCircle2 className="w-3 h-3 text-white" />
                 </div>
               </div>
-              <div>
-                <div className="flex items-center gap-2.5 mb-1">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2.5 mb-1 flex-wrap">
                   <h3 className="text-base font-bold text-neutral-900 dark:text-neutral-100">
                     Push to GitHub
                   </h3>
@@ -347,10 +347,10 @@ export function WorkspaceGitHubPanel({ workspaceId, workspaceName }: WorkspaceGi
     <>
       <div className="bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 rounded-3xl shadow-xl overflow-hidden">
         {/* ─ Repo Header ─ */}
-        <div className="p-5 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-neutral-200/60 dark:border-neutral-800/60">
-          <div className="flex items-start gap-3.5">
+        <div className="p-4 sm:p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-neutral-200/60 dark:border-neutral-800/60">
+          <div className="flex items-start gap-3 sm:gap-3.5 min-w-0 flex-1">
             <div className="relative flex-shrink-0">
-              <div className="p-3 rounded-2xl bg-sky-500/10 text-sky-500 border border-sky-500/15">
+              <div className="p-2.5 sm:p-3 rounded-2xl bg-sky-500/10 text-sky-500 border border-sky-500/15">
                 <GitBranch className="w-5 h-5" />
               </div>
               <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3">
@@ -358,9 +358,9 @@ export function WorkspaceGitHubPanel({ workspaceId, workspaceName }: WorkspaceGi
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 border border-white dark:border-neutral-900" />
               </span>
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <span className="text-base font-bold text-neutral-900 dark:text-neutral-100 font-mono">
+                <span className="text-sm sm:text-base font-bold text-neutral-900 dark:text-neutral-100 font-mono break-all sm:break-words">
                   {connectedRepo.owner}/{connectedRepo.repositoryName}
                 </span>
 

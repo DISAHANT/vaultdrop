@@ -1,19 +1,39 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { AuthProvider } from '@/components/auth-provider';
 import { ToastProvider } from '@/components/toast-provider';
 import { Navbar } from '@/components/navbar';
-
 import { VaultDropLogo } from '@/components/vaultdrop-logo';
+import { IncomingTransferListener } from '@/components/incoming-transfer-listener';
+import { PwaRegister } from '@/components/pwa-register';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: '#07090e',
+};
 
 export const metadata: Metadata = {
   title: 'VaultDrop — Cross-Device Workspace & Secure File Bridge',
   description: 'Ultra-fast, zero-leak file and workspace sync across all your devices and GitHub repositories with cryptographic integrity.',
   keywords: ['file sharing', 'secure', 'workspace sync', 'github integration', 'cross-device', 'encrypted storage'],
+  manifest: '/manifest.json',
   icons: {
-    icon: '/logo.png',
-    apple: '/logo.png',
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' }
+    ],
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }
+    ],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'VaultDrop',
   },
   openGraph: {
     title: 'VaultDrop — Cross-Device Workspace & Secure File Bridge',
@@ -23,8 +43,6 @@ export const metadata: Metadata = {
   },
   robots: { index: true, follow: true },
 };
-
-import { IncomingTransferListener } from '@/components/incoming-transfer-listener';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -53,6 +71,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </footer>
             </div>
             <IncomingTransferListener />
+            <PwaRegister />
             <ToastProvider />
           </AuthProvider>
         </ThemeProvider>

@@ -196,23 +196,23 @@ export function ConnectRepoModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md p-4 animate-in fade-in duration-200">
       <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-3xl max-w-xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="p-5 sm:p-6 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-sky-500/15 to-indigo-500/15 text-sky-500 border border-sky-500/20 flex items-center justify-center">
+        <div className="p-4 sm:p-6 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-sky-500/15 to-indigo-500/15 text-sky-500 border border-sky-500/20 flex items-center justify-center flex-shrink-0">
               <GitBranch className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0 flex-1">
               <h2 className="text-base font-bold text-neutral-900 dark:text-neutral-100">
                 Push to GitHub
               </h2>
-              <p className="text-[11px] text-neutral-500">
+              <p className="text-[11px] text-neutral-500 truncate">
                 Link <strong className="text-neutral-700 dark:text-neutral-300">{workspaceName}</strong> to a repository
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+            className="p-2 rounded-xl text-neutral-400 hover:text-neutral-800 dark:hover:text-neutral-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors flex-shrink-0"
           >
             <X className="w-4 h-4" />
           </button>

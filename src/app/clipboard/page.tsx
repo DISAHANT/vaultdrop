@@ -323,7 +323,7 @@ export default function ClipboardPage() {
               key={item.id}
               className="p-5 rounded-3xl bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-neutral-200/80 dark:border-neutral-800 shadow-lg hover:shadow-xl transition-all space-y-3"
             >
-              <div className="flex items-center justify-between text-xs pb-2 border-b border-neutral-200/60 dark:border-neutral-800/60">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs pb-2 border-b border-neutral-200/60 dark:border-neutral-800/60">
                 <div className="flex items-center gap-2">
                   {getTypeIcon(item.type)}
                   <span className="capitalize font-semibold text-neutral-700 dark:text-neutral-300">
