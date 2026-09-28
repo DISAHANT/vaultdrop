@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   GitBranch,
@@ -95,7 +96,9 @@ interface OperationItem {
   metadata?: any;
 }
 
-export default function GitHubDashboardPage() {
+function GitHubDashboardContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: session, status: authStatus } = useSession();
 
   const [activeTab, setActiveTab] = useState<'repos' | 'workspaces' | 'activity'>('repos');
@@ -249,6 +252,27 @@ export default function GitHubDashboardPage() {
       setLoading(false);
     }
   }, [session, authStatus, fetchStatus]);
+
+  useEffect(() => {
+    const errorParam = searchParams.get('error');
+    const connectedParam = searchParams.get('connected');
+    const needsInstParam = searchParams.get('needs_installation');
+
+    if (errorParam) {
+      toast.error('GitHub Connection Issue: ' + decodeURIComponent(errorParam), { duration: 6000 });
+      router.replace('/github');
+    } else if (connectedParam) {
+      toast.success('GitHub account connected successfully!', { duration: 4000 });
+      fetchStatus();
+      router.replace('/github');
+    } else if (needsInstParam) {
+      toast.info('GitHub account authorized! Please install the VAULTDROP SYNC app on your repositories.', {
+        duration: 8000,
+      });
+      fetchStatus();
+      router.replace('/github');
+    }
+  }, [searchParams, router, fetchStatus]);
 
   const handleDisconnect = async () => {
     if (!confirm('Are you sure you want to disconnect your GitHub account from VaultDrop?')) return;
@@ -645,6 +669,34 @@ export default function GitHubDashboardPage() {
           <Layers className="w-6 h-6 text-sky-500/40 flex-shrink-0" />
         </div>
       </div>
+
+      {/* ─── Installation Required Banner ─── */}
+      {isConnected && !hasInstallation && (
+        <div className="rounded-2xl p-4 sm:p-5 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg backdrop-blur-xl">
+          <div className="flex items-start gap-3.5 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <AlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-amber-300">
+                Action Required: Install VAULTDROP SYNC on your repositories
+              </h4>
+              <p className="text-xs text-neutral-300 mt-1 leading-relaxed max-w-2xl">
+                Your GitHub account <strong className="text-white font-mono">@{statusData?.connection?.githubLogin}</strong> is connected, but repository access requires installing the VAULTDROP SYNC GitHub App.
+              </p>
+            </div>
+          </div>
+          <a
+            href={statusData?.appInstallationUrl || 'https://github.com/apps/vaultdrop-sync/installations/new'}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-xs shadow-md shadow-amber-500/20 hover:brightness-110 transition-all flex-shrink-0"
+          >
+            <span>Install GitHub App</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
+      )}
 
       {/* ─── Navigation Tabs ─── */}
       <div className="flex border-b border-neutral-200 dark:border-neutral-800 gap-2 sm:gap-4 overflow-x-auto no-scrollbar whitespace-nowrap">
@@ -1446,5 +1498,19 @@ export default function GitHubDashboardPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function GitHubDashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <RefreshCw className="w-8 h-8 animate-spin text-sky-500" />
+        </div>
+      }
+    >
+      <GitHubDashboardContent />
+    </Suspense>
   );
 }

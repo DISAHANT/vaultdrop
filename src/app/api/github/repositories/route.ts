@@ -30,9 +30,34 @@ export async function GET(request: Request) {
       orderBy: { updatedAt: 'desc' },
     });
 
-    if (!connection || !connection.githubInstallationId) {
+    if (!connection) {
       return NextResponse.json({
-        connected: !!connection,
+        connected: false,
+        hasInstallation: false,
+        repositories: [],
+        totalCount: 0,
+        appInstallationUrl: 'https://github.com/apps/vaultdrop-sync/installations/new',
+      });
+    }
+
+    let installationId = connection.githubInstallationId;
+    if (!installationId && connection.githubLogin) {
+      try {
+        const { getInstallationForUser } = await import('@/lib/github/app');
+        const inst = await getInstallationForUser(connection.githubLogin);
+        if (inst && inst.id) {
+          installationId = inst.id;
+          await prisma.gitHubConnection.update({
+            where: { id: connection.id },
+            data: { githubInstallationId: inst.id, updatedAt: new Date() },
+          });
+        }
+      } catch {}
+    }
+
+    if (!installationId) {
+      return NextResponse.json({
+        connected: true,
         hasInstallation: false,
         repositories: [],
         totalCount: 0,
@@ -45,7 +70,7 @@ export async function GET(request: Request) {
     const page = parseInt(url.searchParams.get('page') || '1', 10);
     const perPage = parseInt(url.searchParams.get('perPage') || '100', 10);
 
-    const data = await listInstallationRepositories(connection.githubInstallationId, page, perPage);
+    const data = await listInstallationRepositories(installationId, page, perPage);
 
     let repos = (data.repositories || []).map((repo: any) => ({
       id: repo.id,

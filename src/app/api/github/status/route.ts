@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSessionUser } from '@/lib/auth';
 import prisma from '@/lib/db';
-import { listInstallationRepositories } from '@/lib/github/app';
+import { listInstallationRepositories, getInstallationForUser } from '@/lib/github/app';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,12 +29,33 @@ export async function GET() {
       });
     }
 
+    let installationId = connection.githubInstallationId;
+
+    // Self-healing: if installationId is not yet saved, check if user installed it on GitHub
+    if (!installationId && connection.githubLogin) {
+      try {
+        const inst = await getInstallationForUser(connection.githubLogin);
+        if (inst && inst.id) {
+          installationId = inst.id;
+          await prisma.gitHubConnection.update({
+            where: { id: connection.id },
+            data: {
+              githubInstallationId: inst.id,
+              updatedAt: new Date(),
+            },
+          });
+        }
+      } catch (err: any) {
+        // App might not be installed yet
+      }
+    }
+
     let repoCount = 0;
     let installationValid = false;
 
-    if (connection.githubInstallationId) {
+    if (installationId) {
       try {
-        const repoData = await listInstallationRepositories(connection.githubInstallationId, 1, 1);
+        const repoData = await listInstallationRepositories(installationId, 1, 1);
         repoCount = repoData.totalCount;
         installationValid = true;
       } catch (err: any) {
@@ -52,8 +73,8 @@ export async function GET() {
         githubLogin: connection.githubLogin,
         githubAvatarUrl: connection.githubAvatarUrl,
         githubAccountType: connection.githubAccountType,
-        installationId: connection.githubInstallationId,
-        hasInstallation: !!connection.githubInstallationId && installationValid,
+        installationId: installationId,
+        hasInstallation: !!installationId && installationValid,
         connectedAt: connection.connectedAt,
       },
       repoCount,

@@ -11,22 +11,37 @@ export async function POST() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Delete or mark active connections as revoked
-    const deleted = await prisma.gitHubConnection.deleteMany({
+    // 1. Delete all active connections for this VaultDrop user
+    const deletedConnections = await prisma.gitHubConnection.deleteMany({
       where: { vaultdropUserId: user.id },
     });
 
-    // Audit log disconnection
+    // 2. Unlink any workspace-github repository mappings for this VaultDrop user
+    const deletedMappings = await prisma.workspaceGitHubRepo.deleteMany({
+      where: { vaultdropUserId: user.id },
+    });
+
+    // 3. Audit log disconnection
     await prisma.gitHubOperation.create({
       data: {
         vaultdropUserId: user.id,
         operation: 'DISCONNECT',
         status: 'success',
-        metadata: JSON.stringify({ count: deleted.count }),
+        metadata: JSON.stringify({
+          connectionsDeleted: deletedConnections.count,
+          mappingsDeleted: deletedMappings.count,
+        }),
       },
     });
 
-    return NextResponse.json({ success: true, message: 'GitHub account disconnected.' });
+    return NextResponse.json({
+      success: true,
+      message: 'GitHub account disconnected.',
+      details: {
+        connectionsDeleted: deletedConnections.count,
+        mappingsDeleted: deletedMappings.count,
+      },
+    });
   } catch (error: any) {
     console.error('GitHub disconnect error:', error);
     return NextResponse.json({ error: 'Failed to disconnect GitHub account' }, { status: 500 });

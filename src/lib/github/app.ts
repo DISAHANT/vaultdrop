@@ -158,6 +158,34 @@ export async function getInstallationForUser(githubLogin: string): Promise<any |
 }
 
 /**
+ * Retrieves installation details by installation ID using App JWT
+ */
+export async function getInstallationDetails(installationId: number): Promise<any | null> {
+  const appJwt = generateAppJwt();
+  const response = await fetch(`https://api.github.com/app/installations/${installationId}`, {
+    headers: {
+      Authorization: `Bearer ${appJwt}`,
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'User-Agent': 'VaultDrop-Sync-App',
+    },
+  });
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new GitHubApiError(
+      parseGitHubError({ status: response.status, ...err }, 'Fetching GitHub Installation Details')
+    );
+  }
+
+  return response.json();
+}
+
+/**
  * Lists all repositories accessible by the given installation ID
  */
 export async function listInstallationRepositories(
